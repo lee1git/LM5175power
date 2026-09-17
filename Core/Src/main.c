@@ -118,7 +118,7 @@ void Callback01(void *argument);
 static void MX_NVIC_Init(void);
 /* USER CODE BEGIN PFP */
 /* USER CODE END PFP */
-
+struct INA226_init_t INA226_init_data={INA226_reg_10A_6mOhm};
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
@@ -163,7 +163,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
 
   //500uA/per 10A/max
-  if(INA226_init(INA226_reg_10A_6mOhm) == 0){ 
+  if(INA226_init(&hi2c1,INA226_init_data) == SENSOR_OK){ 
     HAL_UART_Transmit(&huart2,(uint8_t*)"INA:initOK\r\n",12,HAL_MAX_DELAY);
   }
   else{
@@ -747,8 +747,10 @@ void Callback01(void *argument)
   float last_vlotage;
   static int count = 0;
 
+  int sensor_res;
+
   //iic sensor read
-  temperature = TMP112_ReadTemperature();
+  sensor_res = TMP112_ReadTemperature(&hi2c1,&temperature);
   current = INA226_readCuttent(0.0005f);    //0.0005A/per
   vlotage = INA226_readVoltage(0.00125f);  //0.00125V/per
 

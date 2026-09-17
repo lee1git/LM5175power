@@ -3,43 +3,61 @@
 
 extern I2C_HandleTypeDef hi2c1;
 
-float TMP112_ReadTemperature(void)
+sensor_fstate_t TMP112_ReadTemperature(I2C_HandleTypeDef* hi2c,float* tempOut)
 {
-  uint8_t reg = TMP112A_TMP_REG;
   uint8_t data[2] = {0};
   int16_t raw_temp;
   float temp_celsius;
+  HAL_StatusTypeDef state_res;
 
-  //send addr
-  if(HAL_I2C_Master_Transmit(&hi2c1, TMP112A_ADDR, &reg, 1, SENSOR_I2C_TIMEOUT) != HAL_OK){
-    return FLT_MIN;
+  if(tempOut == NULL) return SENSOR_ERR_INVALID_DATA;
+
+  state_res = HAL_I2C_Mem_Read(hi2c, TMP112A_ADDR, TMP112A_TMP_REG,
+    I2C_MEMADD_SIZE_8BIT, data, 2, SENSOR_I2C_TIMEOUT);     //read temp
+  switch (state_res)
+  {
+    case HAL_ERROR:   return SENSOR_ERR_I2C;
+    case HAL_BUSY:    return SENSOR_ERR_BUSY;
+    case HAL_OK:      break;
+    default:          return SENSOR_ERR_I2C;
   }
-  //read 2 bytes teamp data
-  if(HAL_I2C_Master_Receive(&hi2c1, TMP112A_ADDR, data, 2, SENSOR_I2C_TIMEOUT) != HAL_OK){
-    return FLT_MIN;
-  }
+
   raw_temp = (int16_t)((data[0] << 8) | data[1]);
   temp_celsius = (float)(raw_temp >> 4) * 0.0625f;
-  return temp_celsius;
+  if(temp_celsius < -20.0 || temp_celsius > 200.0)return SENSOR_ERR_INVALID_DATA;
+  
+  *tempOut = temp_celsius;
+  return SENSOR_OK;
 }
 
-int INA226_init(struct INA226_init_t init_data)
+sensor_fstate_t INA226_init(I2C_HandleTypeDef* hi2c, struct INA226_init_t init_data)
 {
-  uint8_t data[3];
-  data[0] = INA226_CONFIG_REG;
-  data[1] = 0x41;
-  data[2] = 0x27;
-  if(HAL_I2C_Master_Transmit(&hi2c1, INA226_ADDR, data, 3, SENSOR_I2C_TIMEOUT) != HAL_OK){
-    return 1;
+  HAL_StatusTypeDef state_res;
+  uint16_t buf;
+
+  buf = INA226_reg0_default;
+  state_res = HAL_I2C_Mem_Write(hi2c,INA226_ADDR,INA226_CONFIG_REG,
+    I2C_MEMADD_SIZE_8BIT,(uint8_t*)&buf,2,SENSOR_I2C_TIMEOUT);
+  switch (state_res)
+  {
+    case HAL_ERROR:   return SENSOR_ERR_I2C;
+    case HAL_BUSY:    return SENSOR_ERR_BUSY;
+    case HAL_OK:      break;
+    default:          return SENSOR_ERR_I2C;
   }
 
-  data[0] = INA226_CALIBRATION_REG;
-  data[1] = (uint8_t)(init_data.calibration>>8);
-  data[2] = (uint8_t)(init_data.calibration);
-  if(HAL_I2C_Master_Transmit(&hi2c1, INA226_ADDR, data, 3, SENSOR_I2C_TIMEOUT) != HAL_OK){
-    return 1;
+  buf = init_data.calibration;
+  state_res = HAL_I2C_Mem_Write(hi2c,INA226_ADDR,INA226_CALIBRATION_REG,
+    I2C_MEMADD_SIZE_8BIT,(uint8_t*)&buf,2,SENSOR_I2C_TIMEOUT);
+  switch (state_res)
+  {
+    case HAL_ERROR:   return SENSOR_ERR_I2C;
+    case HAL_BUSY:    return SENSOR_ERR_BUSY;
+    case HAL_OK:      break;
+    default:          return SENSOR_ERR_I2C;
   }
-  return 0;
+
+  return SENSOR_OK;
 }
 
 float INA226_readCuttent(float LSB)
