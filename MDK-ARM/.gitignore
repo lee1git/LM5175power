@@ -1,0 +1,22 @@
+# dot files
+/.vscode/launch.json
+/.settings
+/.eide/log
+/.eide.usr.ctx.json
+
+# project out
+# 编译输出目录：保留文件夹壳（.gitkeep 占位），目录内的编译产物不上传
+/build/*
+!/build/.gitkeep
+/bin
+/obj
+/out
+
+# Keil MDK 编译输出目录（uvprojx 中的 OutputDirectory=power_control\）
+# 同样只保留文件夹壳，不上传 .o/.crf/.d/.map/.htm/.lnp 等编译产物
+/power_control/*
+!/power_control/.gitkeep
+
+# eide template
+*.ept
+*.eide-template

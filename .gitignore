@@ -1,2 +1,6 @@
-/MDK-ARM
+# Middlewares 目录：保持原有忽略规则不变
 /Middlewares
+
+# 说明：不再整体忽略 /MDK-ARM，
+# Keil5 的工程文件（*.uvprojx / *.uvoptx / *.uvguix.* / *.sct / 启动文件 / RTE / DebugConfig 等）需要上传。
+# 编译输出目录只保留文件夹壳、不上传内容，具体规则见 MDK-ARM/.gitignore。
