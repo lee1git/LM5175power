@@ -48,7 +48,7 @@ typedef enum{
 // function
 sensor_fstate_t TMP112_ReadTemperature(I2C_HandleTypeDef* hi2c, float* tempOut);
 sensor_fstate_t INA226_init(I2C_HandleTypeDef* hi2c, struct INA226_init_t init_data);
-float INA226_readCuttent(float LSB);
+sensor_fstate_t INA226_readCuttent(I2C_HandleTypeDef* hi2c, float LSB, float* currentOut);
 float INA226_readVoltage(float LSB);
 
 int Sensors_init(struct Sensors_init_t init_data);

@@ -60,20 +60,31 @@ sensor_fstate_t INA226_init(I2C_HandleTypeDef* hi2c, struct INA226_init_t init_d
   return SENSOR_OK;
 }
 
-float INA226_readCuttent(float LSB)
+sensor_fstate_t INA226_readCuttent(I2C_HandleTypeDef* hi2c,float LSB,float* currentOut)
 {
-  uint8_t reg = INA226_CURRENT_REG;
-  uint8_t data[2];
+  uint8_t data[2] = {0};
   int16_t raw_current;
-  if(HAL_I2C_Master_Transmit(&hi2c1, INA226_ADDR, &reg, 1, SENSOR_I2C_TIMEOUT) != HAL_OK){
-    return FLT_MIN;
+  float current_ampere;
+  HAL_StatusTypeDef state_res;
+
+  if(currentOut == NULL) return SENSOR_ERR_INVALID_DATA;
+  if(LSB <= 0.0f) return SENSOR_ERR_INVALID_DATA;
+
+  state_res = HAL_I2C_Mem_Read(hi2c, INA226_ADDR, INA226_CURRENT_REG,
+    I2C_MEMADD_SIZE_8BIT, data, 2, SENSOR_I2C_TIMEOUT);     //read current
+  switch (state_res)
+  {
+    case HAL_ERROR:   return SENSOR_ERR_I2C;
+    case HAL_BUSY:    return SENSOR_ERR_BUSY;
+    case HAL_OK:      break;
+    default:          return SENSOR_ERR_I2C;
   }
 
-  if(HAL_I2C_Master_Receive(&hi2c1, INA226_ADDR, data, 2, SENSOR_I2C_TIMEOUT) != HAL_OK){
-    return FLT_MIN;
-  }
   raw_current = (int16_t)((data[0] << 8) | data[1]);
-  return raw_current*LSB;
+  current_ampere = (float)raw_current * LSB;
+  if(current_ampere < 0.01f) return SENSOR_ERR_INVALID_DATA;
+  *currentOut = current_ampere;
+  return SENSOR_OK;
 }
 
 float INA226_readVoltage(float LSB)

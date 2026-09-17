@@ -747,38 +747,40 @@ void Callback01(void *argument)
   float last_vlotage;
   static int count = 0;
 
-  int sensor_res;
+  sensor_fstate_t sensor_res;
 
   //iic sensor read
   sensor_res = TMP112_ReadTemperature(&hi2c1,&temperature);
-  current = INA226_readCuttent(0.0005f);    //0.0005A/per
+  //error process (later add)
+  sensor_res = INA226_readCuttent(&hi2c1,0.0005f,&current);    //0.0005A/per
   vlotage = INA226_readVoltage(0.00125f);  //0.00125V/per
 
-  if(count >= 50)
-  {
-    if(temperature != FLT_MIN){
-      sendLen = sprintf((char *)buf,"T:%.2f\r\n",temperature);
-      HAL_UART_Transmit(&huart2,buf,sendLen,HAL_MAX_DELAY);
-    }else{
-      HAL_UART_Transmit(&huart2,"T:ERR\r\n",7,HAL_MAX_DELAY);
-    }
-    if(current != FLT_MIN){
-      sendLen = sprintf((char *)buf,"I:%.2fA\r\n",current);
-      HAL_UART_Transmit(&huart2,buf,sendLen,HAL_MAX_DELAY);
-    }else{
-      HAL_UART_Transmit(&huart2,"I:ERR\r\n",7,HAL_MAX_DELAY);
-    }
-    if(vlotage != FLT_MIN){
-      sendLen = sprintf((char *)buf,"V:%.2fV\r\n",vlotage);
-      HAL_UART_Transmit(&huart2,buf,sendLen,HAL_MAX_DELAY);
-    }else{
-      HAL_UART_Transmit(&huart2,"V:ERR\r\n",7,HAL_MAX_DELAY);
-    }
-    count = 0;
-  }
-  else{
-    count++;
-  }
+  //this function just get data,later will create a new callbcak to use uart report any data in any format
+  // if(count >= 50)
+  // {
+  //   if(temperature != FLT_MIN){
+  //     sendLen = sprintf((char *)buf,"T:%.2f\r\n",temperature);
+  //     HAL_UART_Transmit(&huart2,buf,sendLen,HAL_MAX_DELAY);
+  //   }else{
+  //     HAL_UART_Transmit(&huart2,"T:ERR\r\n",7,HAL_MAX_DELAY);
+  //   }
+  //   if(current != FLT_MIN){
+  //     sendLen = sprintf((char *)buf,"I:%.2fA\r\n",current);
+  //     HAL_UART_Transmit(&huart2,buf,sendLen,HAL_MAX_DELAY);
+  //   }else{
+  //     HAL_UART_Transmit(&huart2,"I:ERR\r\n",7,HAL_MAX_DELAY);
+  //   }
+  //   if(vlotage != FLT_MIN){
+  //     sendLen = sprintf((char *)buf,"V:%.2fV\r\n",vlotage);
+  //     HAL_UART_Transmit(&huart2,buf,sendLen,HAL_MAX_DELAY);
+  //   }else{
+  //     HAL_UART_Transmit(&huart2,"V:ERR\r\n",7,HAL_MAX_DELAY);
+  //   }
+  //   count = 0;
+  // }
+  // else{
+  //   count++;
+  // }
 
   last_vlotage = vlotage;
 
