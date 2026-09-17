@@ -33,11 +33,12 @@ sensor_fstate_t TMP112_ReadTemperature(I2C_HandleTypeDef* hi2c,float* tempOut)
 sensor_fstate_t INA226_init(I2C_HandleTypeDef* hi2c, struct INA226_init_t init_data)
 {
   HAL_StatusTypeDef state_res;
-  uint16_t buf;
+  uint8_t tx_data[2] = {0};
 
-  buf = INA226_reg0_default;
+  tx_data[0] = HIGH8IN16(INA226_reg0_default);
+  tx_data[1] = LOW8IN16(INA226_reg0_default);
   state_res = HAL_I2C_Mem_Write(hi2c,INA226_ADDR,INA226_CONFIG_REG,
-    I2C_MEMADD_SIZE_8BIT,(uint8_t*)&buf,2,SENSOR_I2C_TIMEOUT);
+    I2C_MEMADD_SIZE_8BIT,tx_data,2,SENSOR_I2C_TIMEOUT);
   switch (state_res)
   {
     case HAL_ERROR:   return SENSOR_ERR_I2C;
@@ -46,9 +47,10 @@ sensor_fstate_t INA226_init(I2C_HandleTypeDef* hi2c, struct INA226_init_t init_d
     default:          return SENSOR_ERR_I2C;
   }
 
-  buf = init_data.calibration;
+  tx_data[0] = HIGH8IN16(init_data.calibration);
+  tx_data[1] = LOW8IN16(init_data.calibration);
   state_res = HAL_I2C_Mem_Write(hi2c,INA226_ADDR,INA226_CALIBRATION_REG,
-    I2C_MEMADD_SIZE_8BIT,(uint8_t*)&buf,2,SENSOR_I2C_TIMEOUT);
+    I2C_MEMADD_SIZE_8BIT,tx_data,2,SENSOR_I2C_TIMEOUT);
   switch (state_res)
   {
     case HAL_ERROR:   return SENSOR_ERR_I2C;
@@ -87,18 +89,27 @@ sensor_fstate_t INA226_readCuttent(I2C_HandleTypeDef* hi2c,float LSB,float* curr
   return SENSOR_OK;
 }
 
-float INA226_readVoltage(float LSB)
+sensor_fstate_t INA226_readVoltage(I2C_HandleTypeDef* hi2c, float LSB, float* voltageOut)
 {
-  uint8_t reg = INA226_VLOTAGE_REG;
-  uint8_t data[2];
+  uint8_t data[2] = {0};
   int16_t raw_vlotage;
-  if(HAL_I2C_Master_Transmit(&hi2c1, INA226_ADDR, &reg, 1, SENSOR_I2C_TIMEOUT) != HAL_OK){
-    return FLT_MIN;
+  HAL_StatusTypeDef state_res;
+
+  if(voltageOut == NULL) return SENSOR_ERR_INVALID_DATA;
+  if(LSB <= 0.0f) return SENSOR_ERR_INVALID_DATA;
+
+  state_res = HAL_I2C_Mem_Read(hi2c, INA226_ADDR, INA226_VLOTAGE_REG, 
+    I2C_MEMADD_SIZE_8BIT, data, 2, SENSOR_I2C_TIMEOUT);
+  switch (state_res)
+  {
+    case HAL_ERROR:   return SENSOR_ERR_I2C;
+    case HAL_BUSY:    return SENSOR_ERR_BUSY;
+    case HAL_OK:      break;
+    default:          return SENSOR_ERR_I2C;
   }
 
-  if(HAL_I2C_Master_Receive(&hi2c1, INA226_ADDR, data, 2, SENSOR_I2C_TIMEOUT) != HAL_OK){
-    return FLT_MIN;
-  }
   raw_vlotage = (int16_t)((data[0] << 8) | data[1]);
-  return raw_vlotage*LSB;
+  if(raw_vlotage*LSB < -0.1f) return SENSOR_ERR_INVALID_DATA;    //dead zone
+  *voltageOut = raw_vlotage*LSB;
+  return SENSOR_OK;
 }

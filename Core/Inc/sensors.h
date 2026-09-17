@@ -1,4 +1,5 @@
 #ifndef _SENSORS_H_
+#define _SENSORS_H_
 
 //include
 #include "main.h"
@@ -49,9 +50,9 @@ typedef enum{
 sensor_fstate_t TMP112_ReadTemperature(I2C_HandleTypeDef* hi2c, float* tempOut);
 sensor_fstate_t INA226_init(I2C_HandleTypeDef* hi2c, struct INA226_init_t init_data);
 sensor_fstate_t INA226_readCuttent(I2C_HandleTypeDef* hi2c, float LSB, float* currentOut);
-float INA226_readVoltage(float LSB);
+sensor_fstate_t INA226_readVoltage(I2C_HandleTypeDef* hi2c, float LSB, float* voltageOut);
 
 int Sensors_init(struct Sensors_init_t init_data);
-int I2C_Restart();
+int I2C_Restart(void);
 
 #endif // !_SENSORS_H_

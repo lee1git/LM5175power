@@ -1,4 +1,5 @@
 #ifndef _POWERMASTER_H_
+#define _POWERMASTER_H_
 
 #include "main.h"
 
