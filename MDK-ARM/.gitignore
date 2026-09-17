@@ -1,21 +1,40 @@
-# dot files
-/.vscode/launch.json
-/.settings
-/.eide/log
-/.eide.usr.ctx.json
+# =====================================================================
+# MDK-ARM：只保留 Keil 工程文件 + 编译输出目录的"壳" + 最终 hex
+# 注意：下面的模式行不能写行尾注释，注释一律单独成行。
+# =====================================================================
 
-# project out
-# 编译输出目录：保留文件夹壳（.gitkeep 占位），目录内的编译产物不上传
+# ---------- 编译器 / IDE 自动生成，与源代码无关：一律屏蔽 ----------
+# eide 导入的 ARM 全系列 CMSIS 模板（约 4 MB）
+/.cmsis/
+# Keil 器件支持包 STM32F1xx_DFP（约 87 MB）
+/.pack/
+# VSCode EIDE 扩展配置（本工程以 Keil 的 uvprojx 为准）
+/.eide/
+# VSCode 工作区配置
+/.vscode/
+/.settings/
+/power_control.code-workspace
+# Keil RTE 自动拷贝的器件文件
+/RTE/Device/
+# Keil 窗口布局，跟人不跟工程
+*.uvguix.*
+# 汇编列表文件，编译产物
+*.lst
+
+# ---------- 编译输出目录：保留文件夹壳，内容不上传 ----------
+# EIDE 输出目录
 /build/*
 !/build/.gitkeep
+
+# Keil MDK 输出目录（uvprojx 中的 OutputDirectory=power_control\）
+# 只放行文件夹壳与最终 hex；.o/.crf/.d/.map/.htm/.lnp 等一律不上传
+/power_control/*
+!/power_control/.gitkeep
+!/power_control/*.hex
+
 /bin
 /obj
 /out
-
-# Keil MDK 编译输出目录（uvprojx 中的 OutputDirectory=power_control\）
-# 同样只保留文件夹壳，不上传 .o/.crf/.d/.map/.htm/.lnp 等编译产物
-/power_control/*
-!/power_control/.gitkeep
 
 # eide template
 *.ept

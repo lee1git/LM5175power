@@ -1,6 +1,40 @@
-# Middlewares 目录：保持原有忽略规则不变
-/Middlewares
+# =====================================================================
+# 本仓库只保留三类内容：
+#   1) Core/ 下的源代码与头文件
+#   2) CubeMX / Keil 的工程配置文件（power_control.ioc、.mxproject、
+#      MDK-ARM 下的 *.uvprojx / *.uvoptx / startup / RTE / DebugConfig）
+#   3) 最终编译产物 hex（见 MDK-ARM/.gitignore 的放行规则）
+# 其余一切与源代码无关的内容全部屏蔽。
+# 克隆后若需编译：用 STM32CubeMX 打开 power_control.ioc，
+# 重新生成 Drivers 与 Middlewares 即可。
+# =====================================================================
 
-# 说明：不再整体忽略 /MDK-ARM，
-# Keil5 的工程文件（*.uvprojx / *.uvoptx / *.uvguix.* / *.sct / 启动文件 / RTE / DebugConfig 等）需要上传。
-# 编译输出目录只保留文件夹壳、不上传内容，具体规则见 MDK-ARM/.gitignore。
+# ---------- 第三方库：整体屏蔽（CubeMX 可重新生成）----------
+/Drivers/
+/Middlewares/
+
+# ---------- 其它与源代码无关的目录与压缩包 ----------
+/Documentation/
+/*.pdf
+/*.zip
+/*.rar
+/*.7z
+/*.exe
+/*.msi
+
+# ---------- 操作系统 / 编辑器垃圾文件 ----------
+Thumbs.db
+Desktop.ini
+ehthumbs.db
+.DS_Store
+*.lnk
+*.bak
+*.tmp
+*.orig
+*.rej
+*.swp
+*~
+
+# ---------- 编译输出目录 ----------
+# MDK-ARM/build 与 MDK-ARM/power_control 只保留文件夹壳（.gitkeep 占位），
+# 详细规则见 MDK-ARM/.gitignore；其中 power_control.hex 已放行。
