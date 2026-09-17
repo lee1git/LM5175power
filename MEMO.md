@@ -31,9 +31,10 @@
 - 增加系统与编辑器垃圾文件规则。
 
 ### 【我】MDK-ARM/.gitignore
-- 屏蔽 .cmsis / .pack / .eide / .vscode / RTE/Device。
+- 屏蔽 .cmsis / .pack / .eide / .vscode 与 RTE 整个目录。
 - 屏蔽 uvguix / lst / code-workspace 等杂项。
 - 编译目录只留文件夹壳，额外放行 power_control.hex。
+- 屏蔽两个 RTE_Components.h：uVision 与 EIDE 各自生成的。
 - 模式行注释改为单独成行，避免被当成模式。
 
 ### 【我】待办

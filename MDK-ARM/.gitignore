@@ -14,8 +14,11 @@
 /.vscode/
 /.settings/
 /power_control.code-workspace
-# Keil RTE 自动拷贝的器件文件
-/RTE/Device/
+# RTE 目录整个屏蔽：uVision 会自动生成 RTE\_<target>\RTE_Components.h
+# 与 RTE\Device\ 下的器件文件，工程打开时自动重建
+/RTE/
+# EIDE 扩展自动生成的同名头文件（文件头写着 don't modify）
+/RTE_Components.h
 # Keil 窗口布局，跟人不跟工程
 *.uvguix.*
 # 汇编列表文件，编译产物
