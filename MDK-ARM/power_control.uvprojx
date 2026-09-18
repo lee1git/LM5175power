@@ -604,6 +604,16 @@
               <FileType>5</FileType>
               <FilePath>..\Core\sensors\inc\sensors_dev.h</FilePath>
             </File>
+            <File>
+              <FileName>TMP112A.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Core\sensors\inc\TMP112A.h</FilePath>
+            </File>
+            <File>
+              <FileName>TMP112A.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\sensors\TMP112A.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>

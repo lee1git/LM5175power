@@ -8,10 +8,13 @@
 
 //include zone
 #include "stdint.h"
+#include "stddef.h"
 
 //define method
 #define HIGH8IN16(u16)           ((uint8_t)(u16>>8))
-#define LOW8IN16(u16)           ((uint8_t)(u16))
+#define LOW8IN16(u16)            ((uint8_t)(u16))
+
+#define U8S_TO_S16(u8_h,u8_l)    ((int16_t)(((uint16_t)(u8_h)<<8)|((uint16_t)(u8_l))))
 
 // define zone
 #define SENSOR_DEV_I2C_TIMEOUT      (5U)       //5ms
@@ -28,7 +31,8 @@ typedef enum{
     SENSOR_DEV_OK = 0,
     SENSOR_DEV_ERR_BUSY,                //timeout or block
     SENSOR_DEV_ERR_I2C,
-    SENSOR_DEV_ERR_INVALID_DATA,        //invalid data/ null 
+    SENSOR_DEV_ERR_INVALID_DATA,        //invalid data
+    SENSOR_DEV_ERR_INVALID_INPUT,       //invalid input
     SENSOR_DEV_ERR_I2C_NOT_IMPLEMENTED  //i2c not implemented for this platform
 } sensor_dev_status_t;
 

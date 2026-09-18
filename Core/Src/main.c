@@ -163,7 +163,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
 
   //500uA/per 10A/max
-  if(INA226_init(INA226_init_data) == SENSOR_STA_OK){ 
+  if(INA226_init(INA226_init_data) == SENSOR_SUCCESS){ 
     HAL_UART_Transmit(&huart2,(uint8_t*)"INA:initOK\r\n",12,HAL_MAX_DELAY);
   }
   else{
@@ -741,14 +741,12 @@ void Callback01(void *argument)
   float current;
   float last_vlotage;
 
-  sensor_fstate_t sensor_res;
-
   //iic sensor read
-  sensor_res = TMP112_ReadTemperature(&hi2c1,&temperature);
+	TMP112_ReadTemperature(&temperature);
   //error process (later add)
-  sensor_res = INA226_readCuttent(&hi2c1,0.0005f,&current);    //0.0005A/per
+  INA226_readCuttent(0.0005f,&current);    //0.0005A/per
 
-  sensor_res = INA226_readVoltage(&hi2c1,0.00125f,&voltage);  //0.00125V/per
+  INA226_readVoltage(0.00125f,&voltage);  //0.00125V/per
 
   //this function just get data,later will create a new callbcak to use uart report any data in any format
 

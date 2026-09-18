@@ -1,3 +1,13 @@
+/**
+ * @file INA226AIDGSR.h
+ * @brief INA226AIDGSR sensor driver header file
+ * @details This file contains the function declarations and type definitions for the INA226AIDGSR sensor driver.
+ *          This driver provides functions to initialize the sensor, read current and voltage values, and handle I2C communication.
+ *          INA226AIDGSR is a double forward current and power monitor with an I2C interface. 
+ *          It can measure both positive and negative current flow.
+ *          So cant detect the data rarly through positive and negative current.
+ */
+
 #ifndef _INA226AIDGSR_H_
 #define _INA226AIDGSR_H_
 
@@ -13,5 +23,7 @@
 #define INA226_reg_10A_6mOhm    ((uint16_t)0x06aa)        //max current 10A, 500uA/pear, 6mOhm resister
 
 sensor_dev_status_t INA226_dev_init(sensor_dev_i2c_t S_i2c, uint16_t calibration);
+sensor_dev_status_t INA226_dev_readCurrent(sensor_dev_i2c_t S_i2c, float LSB, float* currentOut);
+sensor_dev_status_t INA226_dev_readVoltage(sensor_dev_i2c_t S_i2c, float LSB, float* voltageOut);
 
 #endif
