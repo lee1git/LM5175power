@@ -2,8 +2,6 @@
 #define _SENSORS_H_
 
 //defines
-#define INVALID_DATA_FLOAT      (0xFFFFFFFF)
-
 #define MAX_RETRY_COUNT           (3U)       //max retry count for i2c busy
 
 //typedef
@@ -15,7 +13,8 @@ typedef enum{
 
     //INA226
 typedef enum{
-    INA226_calibration_10A_6mOhm = 0
+    INA226_calibration_10A_6mOhm = 0,
+    INA226_calibration_UNDEFINED
 }INA226_calibration_t;
 
 
@@ -32,7 +31,7 @@ sensor_state_t INA226_init(struct sensor_INA226_init init_data);
 sensor_state_t INA226_readCuttent(float LSB, float* currentOut);
 sensor_state_t INA226_readVoltage(float LSB, float* voltageOut);
 
-// int Sensors_init(struct Sensors_init_t init_data);
-int I2C_Restart(void);
+int sensors_outerdev_init(void);
+int Sensors_bus_restart(void);
 
 #endif // !_SENSORS_H_

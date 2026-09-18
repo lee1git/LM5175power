@@ -157,6 +157,92 @@
 - 目标文件里已确认生成该符号。
 - 未跑工程整体编译，uVision 正在运行，避免动 hex。
 
+## 2026-09-18 · 第 7 次：sensors 收尾评估 + CubeMX 拆分外设
+
+### 【我】sensors 结构评估（只读，未改代码）
+- 三层已成形：服务层、器件驱动、传感器设备层。
+- 服务层 sensors.c 已无 HAL 调用、无句柄，只剩 float 指针。
+- TMP112A 与 INA226 各自独立成文件，错误枚举收成两层。
+- 结论：分层合格，屏蔽还差 LSB 一环。
+
+### 【我】本轮查出待修项
+- sensors_dev.h 重定义 NULL，实测告警 47-D。
+- INVALID_DATA_FLOAT 是死宏，赋给 float 也不是 NaN。
+- 驱动层仍 extern hi2c1，反向依赖未解，锁拿不到。
+- I2C 重试四份复制，且紧循环无延时。
+- 0.01A 与逆流判废规则在重构中消失，待确认。
+- I2C_Restart 仍只有声明没有实现。
+
+### 【你】CubeMX 拆分外设初始化
+- .ioc 已开 CoupleFile，生成 gpio/i2c/tim/usart 成对文件。
+- 句柄随之外移：hi2c1 在 i2c.c，htim2 与 htim3 在 tim.c。
+- stm32f1xx_hal_msp.c 相应瘦身 247 行。
+- Keil 工程自动加入新文件，sensors 分组保住了。
+- 编译器、优化等级与输出目录都没被重置。
+
+### 【我】代价：应用代码被清掉 542 行
+- 丢的是 buttomTask、Vlotage_pid、Callback01 三个任务体。
+- 它们原本写在 main.c 的 USER CODE 区里。
+- 但这三个函数归属 freertos.c，CubeMX 不认 main.c 的副本。
+- 新 freertos.c 任务体已空，定时器只创建从未启动。
+- 传感器采样回路目前没有调用者，旧代码可从 git 取回。
+
+## 2026-09-18 · 第 8 次：恢复任务体 + 总线注入 + Core/app
+
+### 【我】Core/Src/freertos.c
+- 从 git 取回 buttomTask、Vlotage_pid、Callback01 三段。
+- 补回 osTimerStart，10ms 采样周期恢复。
+- USER CODE 区补 sensors、powerMaster、tim、usart 头。
+- 补 pid_calculate 原型与 integral 等外部声明。
+- 新增弱钩子强定义，用 I2CAccess 锁总线。
+
+### 【我】Core/sensors/sensors_dev.c 与 .h
+- 新增 I2C_sensor_dev_init 注入总线句柄。
+- 删掉手写 extern hi2c1，类型改由 i2c.h 提供。
+- 读写与 I2C_Restart 全部加锁，Restart 加空句柄保护。
+- 新增两个弱锁钩子，默认空实现不依赖 RTOS。
+
+### 【我】Core/sensors/sensors.c 与 inc/sensors.h
+- 实现 sensors_dev_init()，内部绑定 &hi2c1。
+- 设备头加 stm32f1xx_hal.h，提供句柄类型。
+
+### 【我】Core/app 迁移
+- powerMaster.c/h 移到 Core/app 与 Core/app/inc。
+- 同步 uvprojx、uvoptx 与 eide.yml 的路径与 include。
+- 今后应用模块放这里，CubeMX 生成区不会再碰。
+
+### 【我】验证与顺带发现
+- armcc 单独编译七个 TU，除一条告警外全干净。
+- freertos.c 原漏包含 sensors.h，已补，否则隐式声明。
+- sensors.c 第 111 行枚举混用：设备码赋给状态码。
+- sensors_outerdev_init 与声明名 sensors_dev_init 不一致。
+- TMP112A 两处文件末尾缺换行，已补。
+
+## 2026-09-18 · 第 9 次：逆流与 LSB 定调 + 采样架构待办
+
+### 【你】三条已定决策
+- 驱动层不判逆流，负电流照实返回，交上层判断。
+- LSB 暂保持应用传入，它与标定枚举绑定的固定值。
+- 锁的适配之后再改，本轮不动。
+
+### 【我】待办：控制带宽先要定
+- INA226 配置 0x4127 是 AVG=128，更新周期约 159ms。
+- 10ms 采样只是重复读同一笔数据，白占总线。
+- 二选一：把 AVG 降到 4（约 9ms），或回路降到约 150ms。
+- TMP112 十二位转换约 26ms，10ms 读一次同样没意义。
+
+### 【我】待办：采样与控制回路
+- 不要拆三个任务，同一条 I2C 总线只该有一个采样任务。
+- 采样任务用 osDelayUntil 定周期，再按计数分频。
+- 采样值写 PowerState，用 PowerStateAcssessHandle 保护。
+- PID 任务用 osDelayUntil 定周期，短临界区拷贝后算 PID。
+- 删掉 dataRead_TIM 软定时器，阻塞 I2C 不该待在 Tmr Svc。
+- power_infoHandle 腾给 UART 上报结构体，msg_size 同改。
+
+### 【我】待办：策略归属与收尾
+- 逆流与 0.01A 判废放 Core/app，不要放器件层。
+- LSB 与 CAL 值建议同处定义并注释，免得两处漂移。
+
 ## 待办
 - UART 上位机通讯独立成任务，用队列传上报结构体统一上报。
 - 逆流时直接关芯片保护，方案待定。

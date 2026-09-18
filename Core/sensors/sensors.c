@@ -3,6 +3,12 @@
 #include "sensors_dev.h"
 #include "INA226AIDGSR.h"
 #include "TMP112A.h"
+#include "i2c.h"        //hi2c1, bound to the bus layer below
+
+//
+struct sensor_INA226_init init_data_last = {INA226_calibration_UNDEFINED};
+
+
 
 sensor_state_t TMP112_ReadTemperature(float* tempOut)
 {
@@ -36,6 +42,7 @@ sensor_state_t INA226_init(struct sensor_INA226_init init_data)
     default:
       return SENSOR_ERR_INVALID_INPUT;
   }
+  init_data_last = init_data;   //save the last calibration setting
 
   for(int retry = 0; retry < MAX_RETRY_COUNT; retry++)
   {
@@ -94,5 +101,27 @@ sensor_state_t INA226_readVoltage(float LSB, float* voltageOut)
     default:          
       return SENSOR_ERR_DEV;
   }
+}
+
+int sensors_outerdev_init(void)
+{
+  if(INA226_init(init_data_last) != SENSOR_SUCCESS) return -1;
+
+  // maybe more outer device init here
+
+  return 0; // Return 0 for success
+}
+
+int Sensors_bus_restart(void)
+{
+  return I2C_Restart(SENSOR_DEV_I2C1);
+}
+
+/* Bind the I2C handle to the bus layer.
+ * The application calls this once, after MX_I2C1_Init() and before any sensor access. */
+int sensors_dev_init(void)
+{
+  I2C_sensor_dev_init(&hi2c1);
+  return 0;
 }
 

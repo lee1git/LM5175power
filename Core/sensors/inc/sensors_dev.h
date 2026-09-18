@@ -9,6 +9,7 @@
 //include zone
 #include "stdint.h"
 #include "stddef.h"
+#include "stm32f1xx_hal.h"      //for I2C_HandleTypeDef
 
 //define method
 #define HIGH8IN16(u16)           ((uint8_t)(u16>>8))
@@ -38,6 +39,21 @@ typedef enum{
 
 
 // function zone
+/**
+ * @brief Bind the I2C handle used by this layer. Call once before any register access.
+ *
+ * @param hi2c1     The I2C handle of SENSOR_DEV_I2C1 (e.g. &hi2c1 from i2c.h).
+ * @note  Until this is called the layer returns SENSOR_DEV_ERR_I2C_NOT_IMPLEMENTED.
+ */
+void I2C_sensor_dev_init(I2C_HandleTypeDef* hi2c1);
+
+/**
+ * @brief Bus lock hooks, weak by default (empty = no locking).
+ *        The application overrides them with a real mutex, see freertos.c.
+ */
+void I2C_sensor_dev_lock(void);
+void I2C_sensor_dev_unlock(void);
+
 /**
  * @brief Write data to a sensor device register over I2C.
  * 
@@ -71,6 +87,8 @@ sensor_dev_status_t I2C_sensor_dev_read_reg(
     uint8_t regaddr, 
     uint8_t* data, 
     uint16_t len);
+
+int I2C_Restart(sensor_dev_i2c_t i2c);
 
 #endif // !_SENSORS_DEV_H_
 
