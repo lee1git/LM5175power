@@ -92,6 +92,71 @@
 - uvprojx 编译器由 ARMCLANG V6.24 换回 ARMCC V5.06。
 - 优化等级由 -O2 改 -O1，与传感器逻辑无关。
 
+## 2026-09-18 · 第 5 次：传感器分层大调整核对
+
+### 【我】结构调整（只读核对，未改代码）
+- sensors 拆到 Core/sensors 与 inc，工程已加入。
+- 旧 Core/Inc/sensors.h 与 Core/Src/sensors.c 已删。
+- 新增 sensors_dev 设备层，只实现了 write_reg。
+
+### 【我】已完成
+- I2C_sensor_dev_write_reg 映射完整，超时按忙处理。
+- I2C2/I2C3 返回未实现，不冒充成功。
+- INA226_dev_init 迁移完成，大端字节序正确。
+
+### 【我】真错一：calibration 传错变量
+- init 传给 dev_init 的是枚举 0，不是寄存器值。
+- 告警 sensors.c(37) 已点名 calibration 未被使用。
+- 后果：CAL 写 0，电流读数恒 0，永远判废。
+
+### 【我】真错二：忙分支空转且假成功
+- ERR_BUSY 分支只有空注释，随后落到 return OK。
+- 初始化失败也会打印 INA:initOK。
+
+### 【我】未完成
+- 设备层没有 read_reg，三个读函数仍直连 HAL。
+- 读函数收 hi2c 指针，init 却用 I2C_BUS，两套寻址。
+- 三个状态枚举并存，init 把错误压成 ERR_DEVI。
+- I2C_Restart 仍只有声明没有实现。
+
+### 【我】重复头文件
+- Core/Inc/sensors_dev.h 与 sensors/inc 同名同保护。
+- Core/Inc 那份缺两个字节宏，且路径顺序先命中。
+- .d 文件证实两副本都在用，建议删 Core/Inc 那份。
+
+### 【我】小问题
+- I2C_BUS 非 static，总线硬编码在 sensors.c。
+- INA226AIDGSR.h 末尾缺换行，即那条告警。
+- write_reg 未查 data 空指针与 len 为 0。
+- 读函数失败时不写输出参数，调用方会拿到脏值。
+- config 先于 calibration 写，有 CAL=0 窗口。
+
+### 【我】延后项不计未完成
+- sensor_res 未判错，UART 与队列上报。
+
+## 2026-09-18 · 第 6 次：新增 I2C_sensor_dev_read_reg
+
+### 【我】Core/sensors/sensors_dev.c
+- 新增 I2C_sensor_dev_read_reg，读 8 位寄存器地址的数据。
+- 形参与 write 齐平：总线枚举、addr、regaddr、缓冲、长度。
+- 总线选择与超时按忙的错误映射与 write 完全一致。
+- 多加了 data 空指针与 len 为 0 校验，读是输出缓冲。
+- 只加这一个函数，write 与三个上层读函数都没动。
+
+### 【我】Core/sensors/inc/sensors_dev.h
+- 同步新增原型与注释，注明 16 位寄存器传 2 字节。
+- 数据高位在前，与现有拼装方式一致。
+
+### 【我】Core/Inc/sensors_dev.h
+- 重复副本也同步了原型，免得调用方吃到旧副本。
+- 该副本仍是隐患，建议删掉。
+
+### 【我】验证方式
+- 用 armcc V5.06u6 按工程宏与参数单独编译三个文件。
+- 工程 include 顺序与前置 sensors/inc 顺序都 0 错 0 警。
+- 目标文件里已确认生成该符号。
+- 未跑工程整体编译，uVision 正在运行，避免动 hex。
+
 ## 待办
 - UART 上位机通讯独立成任务，用队列传上报结构体统一上报。
 - 逆流时直接关芯片保护，方案待定。

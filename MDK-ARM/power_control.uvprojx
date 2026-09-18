@@ -340,7 +340,7 @@
               <MiscControls></MiscControls>
               <Define>USE_HAL_DRIVER,STM32F103xB</Define>
               <Undefine></Undefine>
-              <IncludePath>../Core/Inc;../Drivers/STM32F1xx_HAL_Driver/Inc;../Drivers/STM32F1xx_HAL_Driver/Inc/Legacy;../Middlewares/Third_Party/FreeRTOS/Source/include;../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2;../Middlewares/Third_Party/FreeRTOS/Source/portable/RVDS/ARM_CM3;../Drivers/CMSIS/Device/ST/STM32F1xx/Include;../Drivers/CMSIS/Include</IncludePath>
+              <IncludePath>../Core/Inc;../Drivers/STM32F1xx_HAL_Driver/Inc;../Drivers/STM32F1xx_HAL_Driver/Inc/Legacy;../Middlewares/Third_Party/FreeRTOS/Source/include;../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2;../Middlewares/Third_Party/FreeRTOS/Source/portable/RVDS/ARM_CM3;../Drivers/CMSIS/Device/ST/STM32F1xx/Include;../Drivers/CMSIS/Include;..\Core\sensors\inc</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -394,11 +394,6 @@
         <Group>
           <GroupName>Application/User/Core</GroupName>
           <Files>
-            <File>
-              <FileName>sensors.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Core\Src\sensors.c</FilePath>
-            </File>
             <File>
               <FileName>powerMaster.c</FileName>
               <FileType>1</FileType>
@@ -573,6 +568,41 @@
               <FileName>port.c</FileName>
               <FileType>1</FileType>
               <FilePath>../Middlewares/Third_Party/FreeRTOS/Source/portable/RVDS/ARM_CM3/port.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>sensors</GroupName>
+          <Files>
+            <File>
+              <FileName>INA226AIDGSR.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\sensors\INA226AIDGSR.c</FilePath>
+            </File>
+            <File>
+              <FileName>sensors.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\sensors\sensors.c</FilePath>
+            </File>
+            <File>
+              <FileName>sensors_dev.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\sensors\sensors_dev.c</FilePath>
+            </File>
+            <File>
+              <FileName>INA226AIDGSR.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Core\sensors\inc\INA226AIDGSR.h</FilePath>
+            </File>
+            <File>
+              <FileName>sensors.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Core\sensors\inc\sensors.h</FilePath>
+            </File>
+            <File>
+              <FileName>sensors_dev.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Core\sensors\inc\sensors_dev.h</FilePath>
             </File>
           </Files>
         </Group>

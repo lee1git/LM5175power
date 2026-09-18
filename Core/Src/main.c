@@ -118,7 +118,7 @@ void Callback01(void *argument);
 static void MX_NVIC_Init(void);
 /* USER CODE BEGIN PFP */
 /* USER CODE END PFP */
-struct INA226_init_t INA226_init_data={INA226_reg_10A_6mOhm};
+struct sensor_INA226_init INA226_init_data={INA226_calibration_10A_6mOhm};
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
@@ -163,7 +163,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
 
   //500uA/per 10A/max
-  if(INA226_init(&hi2c1,INA226_init_data) == SENSOR_OK){ 
+  if(INA226_init(INA226_init_data) == SENSOR_STA_OK){ 
     HAL_UART_Transmit(&huart2,(uint8_t*)"INA:initOK\r\n",12,HAL_MAX_DELAY);
   }
   else{
