@@ -8,7 +8,8 @@
 typedef enum{
     SENSOR_SUCCESS = 0,
     SENSOR_ERR_DEV,
-    SENSOR_ERR_INVALID_INPUT
+    SENSOR_ERR_INVALID_INPUT,
+    SENSOR_SKIP
 }sensor_state_t;
 
     //INA226

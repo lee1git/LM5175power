@@ -59,7 +59,7 @@ void Error_Handler(void);
 /* Private defines -----------------------------------------------------------*/
 
 /* USER CODE BEGIN Private defines */
-
+extern struct sensor_INA226_init INA226_init_data;
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

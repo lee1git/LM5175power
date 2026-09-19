@@ -31,6 +31,10 @@ virtualFolder:
                 - path: ../Core/Src/stm32f1xx_hal_msp.c
                 - path: ../Core/Src/stm32f1xx_hal_timebase_tim.c
               folders: []
+        - name: master
+          files:
+            - path: ../Core/app/powerMaster.c
+          folders: []
     - name: Drivers
       files: []
       folders:

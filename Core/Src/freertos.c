@@ -62,29 +62,36 @@ extern float last_error;
 osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
   .name = "defaultTask",
-  .stack_size = 128 * 4,
+  .stack_size = 64 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for buttom */
 osThreadId_t buttomHandle;
 const osThreadAttr_t buttom_attributes = {
   .name = "buttom",
-  .stack_size = 128 * 4,
+  .stack_size = 64 * 4,
   .priority = (osPriority_t) osPriorityRealtime1,
 };
 /* Definitions for PIDv */
 osThreadId_t PIDvHandle;
 const osThreadAttr_t PIDv_attributes = {
   .name = "PIDv",
-  .stack_size = 128 * 4,
+  .stack_size = 64 * 4,
   .priority = (osPriority_t) osPriorityRealtime7,
 };
 /* Definitions for sensorTask */
 osThreadId_t sensorTaskHandle;
 const osThreadAttr_t sensorTask_attributes = {
   .name = "sensorTask",
-  .stack_size = 128 * 4,
+  .stack_size = 64 * 4,
   .priority = (osPriority_t) osPriorityRealtime1,
+};
+/* Definitions for sensor_err_hand */
+osThreadId_t sensor_err_handHandle;
+const osThreadAttr_t sensor_err_hand_attributes = {
+  .name = "sensor_err_hand",
+  .stack_size = 64 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for power_info */
 osMessageQueueId_t power_infoHandle;
@@ -116,6 +123,7 @@ void StartDefaultTask(void *argument);
 void buttomTask(void *argument);
 void Vlotage_pid(void *argument);
 void sensorRead(void *argument);
+void sensor_err_handle(void *argument);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
@@ -149,10 +157,10 @@ void MX_FREERTOS_Init(void) {
 
   /* Create the queue(s) */
   /* creation of power_info */
-  power_infoHandle = osMessageQueueNew (16, sizeof(float), &power_info_attributes);
+  power_infoHandle = osMessageQueueNew (4, sizeof(float), &power_info_attributes);
 
   /* creation of voltage_set */
-  voltage_setHandle = osMessageQueueNew (16, sizeof(int16_t), &voltage_set_attributes);
+  voltage_setHandle = osMessageQueueNew (4, sizeof(int16_t), &voltage_set_attributes);
 
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
@@ -170,6 +178,9 @@ void MX_FREERTOS_Init(void) {
 
   /* creation of sensorTask */
   sensorTaskHandle = osThreadNew(sensorRead, NULL, &sensorTask_attributes);
+
+  /* creation of sensor_err_hand */
+  sensor_err_handHandle = osThreadNew(sensor_err_handle, NULL, &sensor_err_hand_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -351,29 +362,55 @@ void sensorRead(void *argument)
   int voltage_err_count = 0;
   int current_err_count = 0;
 
+  char I2C_state;
+  char INA226_state;
+  char TMP112A_state;
+
   sensor_state_t state_res_temperature;
   sensor_state_t state_res_voltage;
   sensor_state_t state_res_current;
-  TickType_t lastWakeTime;                //period base
+  TickType_t lastWakeTime = xTaskGetTickCount();  //period base
   TickType_t write_time;                  
   /* Infinite loop */
   for(;;)
   {
+    //wait first,so continue is the only need to start the next round
+    vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(20));  //20ms delay
     lastWakeTime = xTaskGetTickCount();   //update the base time for this round
     //iic sensor read
-    state_res_temperature = TMP112_ReadTemperature(&temperature);
-    if(state_res_temperature != SENSOR_SUCCESS) {// Handle error
-      temperature_err_count++;      
+    if(PowerState_lock() == 0)
+    {
+      I2C_state = PowerState.I2C1_state;
+      INA226_state = PowerState.INA226_state;
+      TMP112A_state = PowerState.TMP112_state;
+      PowerState_unlock();
     }
-
-    state_res_current = INA226_readCuttent(0.0005f,&current);    //0.0005A/per
-    if(state_res_current != SENSOR_SUCCESS) {
-      current_err_count++;
-    }
-
-    state_res_voltage = INA226_readVoltage(0.00125f,&voltage);  //0.00125V/per
-    if(state_res_voltage != SENSOR_SUCCESS) {
-      voltage_err_count++;
+    //if lcok fail use the last known state, which is not ideal but better than nothing
+    if(I2C_state == DEVICE_ONLINE)  //work only when the bus is online
+    {
+      if(TMP112A_state == DEVICE_ONLINE){
+        state_res_temperature = TMP112_ReadTemperature(&temperature);
+        if(state_res_temperature != SENSOR_SUCCESS) {// Handle error
+          temperature_err_count++;      
+        }
+      }else{
+        state_res_temperature = SENSOR_SKIP;
+      }
+  
+      if(INA226_state == DEVICE_ONLINE)
+      {
+        state_res_current = INA226_readCuttent(0.0005f,&current);     //0.0005A/per
+        if(state_res_current != SENSOR_SUCCESS) {
+          current_err_count++;
+        }
+        state_res_voltage = INA226_readVoltage(0.00125f,&voltage);    //0.00125V/per
+        if(state_res_voltage != SENSOR_SUCCESS) {
+          voltage_err_count++;
+        }
+      }else{
+        state_res_current = SENSOR_SKIP;
+        state_res_voltage = SENSOR_SKIP;
+      }
     }
 
     // write to PowerState struct, reset error counters if they exceed threshold
@@ -408,9 +445,62 @@ void sensorRead(void *argument)
       PowerState_unlock();
     }
 
-    vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(20));  //20ms delay
   }
   /* USER CODE END sensorRead */
+}
+
+/* USER CODE BEGIN Header_sensor_err_handle */
+/**
+* @brief Function implementing the sensor_err_hand thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_sensor_err_handle */
+void sensor_err_handle(void *argument)
+{
+  /* USER CODE BEGIN sensor_err_handle */
+  TickType_t lastWakeTime = xTaskGetTickCount();  //period base
+  struct PowerStatus_t PowerState_copy;   //local copy to avoid holding the lock too long
+  /* Infinite loop */
+  for(;;)
+  {
+    vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(1000));  //1s delay
+    lastWakeTime = xTaskGetTickCount();   //update the base time for this round
+
+    if(PowerState_lock() == 0){
+      PowerState_copy = PowerState;
+      PowerState_unlock();
+    }else{
+      continue;   //lock not acquired: skip this round
+    }
+
+    if(PowerState.I2C1_state == DEVICE_OFFLINE){
+      if(sensors_outerdev_init() == 0){
+        PowerState_copy.I2C1_state = DEVICE_ONLINE;   //try to recover the bus
+      }
+    }
+
+    if(PowerState.INA226_state == DEVICE_OFFLINE){
+      if(INA226_init(INA226_init_data) == SENSOR_SUCCESS){
+        PowerState_copy.INA226_state = DEVICE_ONLINE;   //try to recover the INA226
+      }
+    }
+
+    if(PowerState.TMP112_state == DEVICE_OFFLINE){
+      float temp;
+      if(TMP112_ReadTemperature(&temp) == SENSOR_SUCCESS){
+        PowerState_copy.TMP112_state = DEVICE_ONLINE;   //try to recover the TMP112
+      }
+    }
+
+    if(PowerState_lock() == 0){
+      PowerState.I2C1_state = PowerState_copy.I2C1_state;
+      PowerState.INA226_state = PowerState_copy.INA226_state;
+      PowerState.TMP112_state = PowerState_copy.TMP112_state;
+      PowerState_unlock();
+    }//lock not acquired: skip this round
+  }
+  /* USER CODE END sensor_err_handle */
 }
 
 /* Private application code --------------------------------------------------*/
