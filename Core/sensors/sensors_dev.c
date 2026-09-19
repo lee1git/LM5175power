@@ -1,7 +1,10 @@
 #include "sensors_dev.h"
 
+#include <assert.h>              //assert() is a macro: without this it links as an undefined symbol
 #include "stm32f1xx_hal.h"
 #include "i2c.h"                 //MX_I2C1_Init(), for bus recovery
+
+#define I2C_INUSE(i2c)  (i2c == SENSOR_DEV_I2C1 && s_hi2c1 != NULL)
 
 /* Bound by the application layer, see I2C_sensor_dev_init() */
 static I2C_HandleTypeDef* s_hi2c1 = NULL;
@@ -17,6 +20,8 @@ __weak void I2C_sensor_dev_unlock(void) { }
 
 sensor_dev_status_t I2C_sensor_dev_write_reg(sensor_dev_i2c_t i2c, uint8_t addr, uint8_t regaddr, uint8_t* data, uint16_t len)
 {
+    assert(I2C_INUSE(i2c));  // Ensure the I2C device is in use
+
     I2C_HandleTypeDef *hi2c;
     HAL_StatusTypeDef state_res;
     switch (i2c)
@@ -46,6 +51,8 @@ sensor_dev_status_t I2C_sensor_dev_write_reg(sensor_dev_i2c_t i2c, uint8_t addr,
 
 sensor_dev_status_t I2C_sensor_dev_read_reg(sensor_dev_i2c_t i2c, uint8_t addr, uint8_t regaddr, uint8_t* data, uint16_t len)
 {
+    assert(I2C_INUSE(i2c));  // Ensure the I2C device is in use
+
     I2C_HandleTypeDef *hi2c;
     HAL_StatusTypeDef state_res;
     switch (i2c)

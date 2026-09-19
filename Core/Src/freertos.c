@@ -44,7 +44,7 @@
 /* PowerState 锁最长等待：临界区只有几次字段读写，5ms 足够宽松 */
 #define POWERSTATE_LOCK_TIMEOUT_TICKS  (pdMS_TO_TICKS(5))
 /* 传感器错误计数上限 */
-#define SENSOR_ERROR_THRESHOLD  3
+#define SENSOR_ERROR_THRESHOLD  5
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -282,14 +282,14 @@ void Vlotage_pid(void *argument)
   /* USER CODE BEGIN Vlotage_pid */
   float set_voltage=6.0f;
   float new_voltage;  //V
-  uint16_t now_pulse = 500;
+  uint16_t now_pulse = 500;       //initial PWM pulse width, just a magic number
   uint16_t pwm_pulse;
-  TickType_t lastWakeTime;
+  TickType_t lastWakeTime = xTaskGetTickCount();   //period base, taken once outside the loop
   uint8_t check_over = 1;
   /* Infinite loop */
   for(;;)
   {
-    lastWakeTime = xTaskGetTickCount();
+    check_over = 1;                                //assume all checks pass, cleared on any fault
     
     if(PowerState_lock() == 0){
 
@@ -309,9 +309,7 @@ void Vlotage_pid(void *argument)
 
       set_voltage = PowerState.set_voltage;
 
-      if(PowerState.last_update_time_voltage + pdMS_TO_TICKS(1000) < xTaskGetTickCount())
-      {
-        //voltage sensor not updated for 1s, reset PID
+      if(PowerState.INA226_state == DEVICE_OFFLINE){
         integral = 0;
         last_error = 0;
         check_over = 0;
@@ -322,13 +320,12 @@ void Vlotage_pid(void *argument)
       check_over = 0;
     }
 
-    if(check_over == 0){
+    if(check_over == 1){          //all checks passed: this round may drive the PWM
       pwm_pulse = pid_calculate(set_voltage,new_voltage);
       pwm_pulse += now_pulse;
       if(pwm_pulse > 800)pwm_pulse = 800;
       if(pwm_pulse < 300)pwm_pulse = 300;
       __HAL_TIM_SET_COMPARE(&htim3,TIM_CHANNEL_1,pwm_pulse);
-      check_over = 1;
     }
 
     vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(20));  //20ms period
@@ -357,12 +354,12 @@ void sensorRead(void *argument)
   sensor_state_t state_res_temperature;
   sensor_state_t state_res_voltage;
   sensor_state_t state_res_current;
-  TickType_t lastWakeTime;
-  TickType_t write_time;
+  TickType_t lastWakeTime;                //period base
+  TickType_t write_time;                  
   /* Infinite loop */
   for(;;)
   {
-    lastWakeTime = xTaskGetTickCount();
+    lastWakeTime = xTaskGetTickCount();   //update the base time for this round
     //iic sensor read
     state_res_temperature = TMP112_ReadTemperature(&temperature);
     if(state_res_temperature != SENSOR_SUCCESS) {// Handle error
