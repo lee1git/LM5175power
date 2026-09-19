@@ -1,12 +1,13 @@
 # =====================================================================
 # 本仓库只保留三类内容：
-#   1) Core/ 下的源代码与头文件
-#   2) CubeMX / Keil 的工程配置文件（power_control.ioc、.mxproject、
-#      MDK-ARM 下的 *.uvprojx / *.uvoptx / startup / RTE / DebugConfig）
+#   1) Core/ 下的源代码与头文件（含 Core/app 与 Core/sensors）
+#   2) 工程配置：power_control.ioc、.mxproject，以及 EIDE 的构建清单
+#      MDK-ARM/.eide/eide.yml（本工程以 EIDE 为主线，Keil 只借器件包
+#      与编译器；uvprojx 备查保留，uvoptx 属本机调试参数，不进仓库）
 #   3) 最终编译产物 hex（见 MDK-ARM/.gitignore 的放行规则）
 # 其余一切与源代码无关的内容全部屏蔽。
-# 克隆后若需编译：用 STM32CubeMX 打开 power_control.ioc，
-# 重新生成 Drivers 与 Middlewares 即可。
+# 克隆后若需编译：装 VS Code 的 EIDE 扩展并打开 MDK-ARM/.eide/eide.yml；
+# Drivers 与 Middlewares 由 CubeMX / EIDE 重新准备即可。
 # =====================================================================
 
 # ---------- 第三方库：整体屏蔽（CubeMX 可重新生成）----------

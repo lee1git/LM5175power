@@ -1,15 +1,20 @@
 # =====================================================================
-# MDK-ARM：只保留 Keil 工程文件 + 编译输出目录的"壳" + 最终 hex
+# MDK-ARM：本工程以 VS Code + EIDE 为主线，Keil 只提供器件包与编译器。
+# 保留：EIDE 构建清单、uvprojx（备查）、编译输出目录的"壳" + 最终 hex
 # 注意：下面的模式行不能写行尾注释，注释一律单独成行。
 # =====================================================================
 
 # ---------- 编译器 / IDE 自动生成，与源代码无关：一律屏蔽 ----------
 # eide 导入的 ARM 全系列 CMSIS 模板（约 4 MB）
 /.cmsis/
-# Keil 器件支持包 STM32F1xx_DFP（约 87 MB）
+# Keil 器件支持包 STM32F1xx_DFP（约 87 MB），EIDE 会自行准备
 /.pack/
-# VSCode EIDE 扩展配置（本工程以 Keil 的 uvprojx 为准）
-/.eide/
+# EIDE 配置：只放行构建清单三件套，其余（日志、用户上下文等）屏蔽
+/.eide/*
+!/.eide/eide.yml
+!/.eide/files.options.yml
+!/.eide/env.ini
+/.eide.usr.ctx.json
 # VSCode 工作区配置
 /.vscode/
 /.settings/
@@ -21,6 +26,8 @@
 /RTE_Components.h
 # Keil 窗口布局，跟人不跟工程
 *.uvguix.*
+# Keil 调试参数（含期望的芯片 ID），跟机器和板子走，不进仓库
+*.uvoptx
 # 汇编列表文件，编译产物
 *.lst
 
