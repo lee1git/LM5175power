@@ -376,7 +376,7 @@ void sensorRead(void *argument)
   {
     //wait first,so continue is the only need to start the next round
     vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(20));  //20ms delay
-    lastWakeTime = xTaskGetTickCount();   //update the base time for this round
+
     //iic sensor read
     if(PowerState_lock() == 0)
     {
@@ -465,7 +465,6 @@ void sensor_err_handle(void *argument)
   for(;;)
   {
     vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(1000));  //1s delay
-    lastWakeTime = xTaskGetTickCount();   //update the base time for this round
 
     if(PowerState_lock() == 0){
       PowerState_copy = PowerState;
@@ -474,29 +473,35 @@ void sensor_err_handle(void *argument)
       continue;   //lock not acquired: skip this round
     }
 
-    if(PowerState.I2C1_state == DEVICE_OFFLINE){
+    if(PowerState_copy.I2C1_state == DEVICE_OFFLINE){
       if(sensors_outerdev_init() == 0){
         PowerState_copy.I2C1_state = DEVICE_ONLINE;   //try to recover the bus
       }
     }
-
-    if(PowerState.INA226_state == DEVICE_OFFLINE){
+    if(PowerState_copy.INA226_state == DEVICE_OFFLINE){
       if(INA226_init(INA226_init_data) == SENSOR_SUCCESS){
         PowerState_copy.INA226_state = DEVICE_ONLINE;   //try to recover the INA226
       }
     }
 
-    if(PowerState.TMP112_state == DEVICE_OFFLINE){
+    if(PowerState_copy.TMP112_state == DEVICE_OFFLINE){
       float temp;
       if(TMP112_ReadTemperature(&temp) == SENSOR_SUCCESS){
         PowerState_copy.TMP112_state = DEVICE_ONLINE;   //try to recover the TMP112
       }
     }
 
+
     if(PowerState_lock() == 0){
-      PowerState.I2C1_state = PowerState_copy.I2C1_state;
-      PowerState.INA226_state = PowerState_copy.INA226_state;
-      PowerState.TMP112_state = PowerState_copy.TMP112_state;
+      if(PowerState_copy.I2C1_state == DEVICE_ONLINE){
+        PowerState.I2C1_state = PowerState_copy.I2C1_state;
+      }
+      if(PowerState_copy.INA226_state == DEVICE_ONLINE){
+        PowerState.INA226_state = PowerState_copy.INA226_state;
+      }
+      if(PowerState_copy.TMP112_state == DEVICE_ONLINE){
+        PowerState.TMP112_state = PowerState_copy.TMP112_state;
+      }
       PowerState_unlock();
     }//lock not acquired: skip this round
   }
