@@ -2,6 +2,11 @@
 
 struct PowerStatus_t PowerState;
 
+//weak function for mutex lock/unlock, to be overridden by application layer
+//0 = ok, non-zero = lock not acquired / release failed
+__weak int PowerState_lock(void)   { return 0; }
+__weak int PowerState_unlock(void) { return 0; }
+
 /**
  * @brief 
  * 
@@ -19,7 +24,7 @@ int PowerStateInit(int _en_sta,float _set_vol,float _set_cur)
         PowerState.en_statu = PWR_EN_OFF;       //defalt close output
     
     PowerState.now_current = 0.0f;
-    PowerState.now_voltaga = 0.0f;
+    PowerState.now_voltage = 0.0f;
     PowerState.now_temperature = 0.0f;
 
     if(_set_vol >= 1.0f && _set_vol < 15.5f)
@@ -34,3 +39,4 @@ int PowerStateInit(int _en_sta,float _set_vol,float _set_cur)
 
     return 0;
 }
+

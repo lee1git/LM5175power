@@ -12,7 +12,7 @@ void I2C_sensor_dev_init(I2C_HandleTypeDef* hi2c1)
 }
 
 /* Weak by default (no locking); the application overrides them, see freertos.c */
-__weak void I2C_sensor_dev_lock(void)   { }
+__weak int  I2C_sensor_dev_lock(void)   { return 0; }   //0 = locked, non-zero = not acquired
 __weak void I2C_sensor_dev_unlock(void) { }
 
 sensor_dev_status_t I2C_sensor_dev_write_reg(sensor_dev_i2c_t i2c, uint8_t addr, uint8_t regaddr, uint8_t* data, uint16_t len)
@@ -30,7 +30,7 @@ sensor_dev_status_t I2C_sensor_dev_write_reg(sensor_dev_i2c_t i2c, uint8_t addr,
     if(hi2c == NULL) return SENSOR_DEV_ERR_I2C_NOT_IMPLEMENTED;
     if((data == NULL) || (len == 0)) return SENSOR_DEV_ERR_INVALID_INPUT;   //data is the sending buffer here
 
-    I2C_sensor_dev_lock();
+    if(I2C_sensor_dev_lock() != 0) return SENSOR_DEV_ERR_BUSY;   //no lock, do not touch the bus
     state_res = HAL_I2C_Mem_Write(hi2c, addr, regaddr, I2C_MEMADD_SIZE_8BIT, data, len, SENSOR_DEV_I2C_TIMEOUT); // Perform I2C write operation
     I2C_sensor_dev_unlock();
     switch (state_res)
@@ -59,7 +59,7 @@ sensor_dev_status_t I2C_sensor_dev_read_reg(sensor_dev_i2c_t i2c, uint8_t addr, 
     if(hi2c == NULL) return SENSOR_DEV_ERR_I2C_NOT_IMPLEMENTED;
     if((data == NULL) || (len == 0)) return SENSOR_DEV_ERR_INVALID_INPUT;   //data is the receiving buffer here
 
-    I2C_sensor_dev_lock();
+    if(I2C_sensor_dev_lock() != 0) return SENSOR_DEV_ERR_BUSY;   //no lock, do not touch the bus
     state_res = HAL_I2C_Mem_Read(hi2c, addr, regaddr, I2C_MEMADD_SIZE_8BIT, data, len, SENSOR_DEV_I2C_TIMEOUT); // Perform I2C read operation
     I2C_sensor_dev_unlock();
     switch (state_res)
@@ -115,7 +115,7 @@ int I2C_Restart(sensor_dev_i2c_t i2c)
     {
     case SENSOR_DEV_I2C1:
         if(s_hi2c1 == NULL) return -1;      //bus not bound yet
-        I2C_sensor_dev_lock();
+        if(I2C_sensor_dev_lock() != 0) return -1;   //no lock, do not touch the bus
         HAL_I2C_DeInit(s_hi2c1);
         I2C_release_bus(GPIOB, GPIO_PIN_6, GPIO_PIN_7); // Release the I2C bus
         MX_I2C1_Init();

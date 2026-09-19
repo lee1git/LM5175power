@@ -39,7 +39,12 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+/* I2C 总线锁最长等待：约两倍最坏持锁时间（一次事务 5ms HAL 超时） */
+#define I2C_LOCK_TIMEOUT_TICKS    (pdMS_TO_TICKS(10))
+/* PowerState 锁最长等待：临界区只有几次字段读写，5ms 足够宽松 */
+#define POWERSTATE_LOCK_TIMEOUT_TICKS  (pdMS_TO_TICKS(5))
+/* 传感器错误计数上限 */
+#define SENSOR_ERROR_THRESHOLD  3
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -65,7 +70,7 @@ osThreadId_t buttomHandle;
 const osThreadAttr_t buttom_attributes = {
   .name = "buttom",
   .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityRealtime6,
+  .priority = (osPriority_t) osPriorityRealtime1,
 };
 /* Definitions for PIDv */
 osThreadId_t PIDvHandle;
@@ -73,6 +78,13 @@ const osThreadAttr_t PIDv_attributes = {
   .name = "PIDv",
   .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityRealtime7,
+};
+/* Definitions for sensorTask */
+osThreadId_t sensorTaskHandle;
+const osThreadAttr_t sensorTask_attributes = {
+  .name = "sensorTask",
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityRealtime1,
 };
 /* Definitions for power_info */
 osMessageQueueId_t power_infoHandle;
@@ -83,11 +95,6 @@ const osMessageQueueAttr_t power_info_attributes = {
 osMessageQueueId_t voltage_setHandle;
 const osMessageQueueAttr_t voltage_set_attributes = {
   .name = "voltage_set"
-};
-/* Definitions for dataRead_TIM */
-osTimerId_t dataRead_TIMHandle;
-const osTimerAttr_t dataRead_TIM_attributes = {
-  .name = "dataRead_TIM"
 };
 /* Definitions for PowerStateAcssess */
 osMutexId_t PowerStateAcssessHandle;
@@ -108,7 +115,7 @@ uint16_t pid_calculate(float target_voltage, float actual_voltage);
 void StartDefaultTask(void *argument);
 void buttomTask(void *argument);
 void Vlotage_pid(void *argument);
-void Callback01(void *argument);
+void sensorRead(void *argument);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
@@ -136,13 +143,8 @@ void MX_FREERTOS_Init(void) {
   /* add semaphores, ... */
   /* USER CODE END RTOS_SEMAPHORES */
 
-  /* Create the timer(s) */
-  /* creation of dataRead_TIM */
-  dataRead_TIMHandle = osTimerNew(Callback01, osTimerPeriodic, NULL, &dataRead_TIM_attributes);
-
   /* USER CODE BEGIN RTOS_TIMERS */
   /* start timers, add new ones, ... */
-  osTimerStart(dataRead_TIMHandle,pdMS_TO_TICKS(10));
   /* USER CODE END RTOS_TIMERS */
 
   /* Create the queue(s) */
@@ -165,6 +167,9 @@ void MX_FREERTOS_Init(void) {
 
   /* creation of PIDv */
   PIDvHandle = osThreadNew(Vlotage_pid, NULL, &PIDv_attributes);
+
+  /* creation of sensorTask */
+  sensorTaskHandle = osThreadNew(sensorRead, NULL, &sensorTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -213,12 +218,13 @@ void buttomTask(void *argument)
   {
     osThreadFlagsWait((uint32_t)0x00000001U,osFlagsWaitAny,osWaitForever);//wait EXIT
     osDelay(pdMS_TO_TICKS(20));   //
-    result = osMutexAcquire(PowerStateAcssessHandle,pdMS_TO_TICKS(5));
 
     temp = HAL_GPIO_ReadPin(GPIOA,GPIO_PIN_8);  //power en switch
     if(temp == GPIO_PIN_RESET){
-      temp = HAL_GPIO_ReadPin(GPIOA,GPIO_PIN_9);
-      if(result == osOK){
+      temp = HAL_GPIO_ReadPin(GPIOA,GPIO_PIN_9);   //read levels outside the lock
+
+      if(osMutexAcquire(PowerStateAcssessHandle,pdMS_TO_TICKS(5)) == osOK)
+      {
         if(PowerState.en_statu == PWR_EN_ON){   //off
           HAL_GPIO_WritePin(GPIOA,GPIO_PIN_9,GPIO_PIN_RESET);
           HAL_GPIO_WritePin(GPIOC,GPIO_PIN_13,GPIO_PIN_SET);
@@ -229,8 +235,16 @@ void buttomTask(void *argument)
           HAL_GPIO_WritePin(GPIOC,GPIO_PIN_13,GPIO_PIN_RESET);
           PowerState.en_statu = PWR_EN_ON;
         }
-      }else{
-        //give up
+        result = osMutexRelease(PowerStateAcssessHandle);   //only release what we hold
+        (void)result;                                       //kept for the DEBUG build
+        #if DEBUG
+        if(result != osOK){
+          HAL_UART_Transmit(&huart2,"MUTEX:PowerStateAcssess realse ERR\r\n",29,HAL_MAX_DELAY);
+        }
+        #endif
+      }
+      else{
+        //lock not acquired: leave PowerState untouched this round
       }
       goto final;
     }
@@ -250,14 +264,7 @@ void buttomTask(void *argument)
       osMessageQueuePut(voltage_setHandle,&upV,0,0);
     }
 
-    final:    //release mutex
-    result = osMutexRelease(PowerStateAcssessHandle);
-    #if DEBUG
-    if(result != osOK){
-      HAL_UART_Transmit(&huart2,"MUTEX:PowerStateAcssess realse ERR\r\n",29,HAL_MAX_DELAY);
-    }
-    #endif
-
+    final:    //no lock held here any more
     osDelay(pdMS_TO_TICKS(180));
   }
   /* USER CODE END buttomTask */
@@ -277,80 +284,136 @@ void Vlotage_pid(void *argument)
   float new_voltage;  //V
   uint16_t now_pulse = 500;
   uint16_t pwm_pulse;
-  int16_t voltage_change;
-  osStatus_t osRes;
+  TickType_t lastWakeTime;
+  uint8_t check_over = 1;
   /* Infinite loop */
   for(;;)
   {
-    osMessageQueueGet(power_infoHandle,&new_voltage,0,osWaitForever);
+    lastWakeTime = xTaskGetTickCount();
+    
+    if(PowerState_lock() == 0){
 
-    osRes = osMutexAcquire(PowerStateAcssessHandle,0);
-    if(osRes == osOK){
-      if(PowerState.en_statu == PWR_EN_OFF){  //if close ,clear pid pram
+      if(PowerState.en_statu == PWR_EN_OFF){
         integral = 0;
         last_error = 0;
+        check_over = 0;
       }
+
+      new_voltage = PowerState.now_voltage;
+      if(new_voltage < 0.0f)
+      {
+        integral = 0;
+        last_error = 0;
+        check_over = 0;
+      }
+
+      set_voltage = PowerState.set_voltage;
+
+      if(PowerState.last_update_time_voltage + pdMS_TO_TICKS(1000) < xTaskGetTickCount())
+      {
+        //voltage sensor not updated for 1s, reset PID
+        integral = 0;
+        last_error = 0;
+        check_over = 0;
+      }
+      PowerState_unlock();
+    }else{
+      //lock not acquired: leave PowerState untouched this round
+      check_over = 0;
     }
 
-    osMutexRelease(PowerStateAcssessHandle);
-
-    if(osMessageQueueGet(voltage_setHandle,&voltage_change,0,0) == osOK)  //set_voltage change
-      set_voltage += voltage_change;
-
-    if(new_voltage < 0.0f)
-    {
-      integral = 0;
-      last_error = 0;
-      continue;
+    if(check_over == 0){
+      pwm_pulse = pid_calculate(set_voltage,new_voltage);
+      pwm_pulse += now_pulse;
+      if(pwm_pulse > 800)pwm_pulse = 800;
+      if(pwm_pulse < 300)pwm_pulse = 300;
+      __HAL_TIM_SET_COMPARE(&htim3,TIM_CHANNEL_1,pwm_pulse);
+      check_over = 1;
     }
 
-    // if((set_voltage - new_voltage) > 0.5 || (set_voltage - new_voltage) < -0.5){
-    //   osTimerStart(dataRead_TIMHandle,pdMS_TO_TICKS(10));
-    // }
-    if((set_voltage - new_voltage) < 0.00 && (set_voltage - new_voltage) > -0.03) //if deviation is small enough skip pid
-    {
-      // count++;
-      // if(count >= 5){
-      //   count = 0;
-      //   osTimerStart(dataRead_TIMHandle,pdMS_TO_TICKS(100));
-      // }
-      continue;
-    }
-
-    pwm_pulse = pid_calculate(set_voltage,new_voltage);
-    pwm_pulse += now_pulse;
-    if(pwm_pulse > 800)pwm_pulse = 800;
-    if(pwm_pulse < 300)pwm_pulse = 300;
-    __HAL_TIM_SET_COMPARE(&htim3,TIM_CHANNEL_1,pwm_pulse);
+    vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(20));  //20ms period
   }
   /* USER CODE END Vlotage_pid */
 }
 
-/* Callback01 function */
-void Callback01(void *argument)
+/* USER CODE BEGIN Header_sensorRead */
+/**
+* @brief Function implementing the sensorTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_sensorRead */
+void sensorRead(void *argument)
 {
-  /* USER CODE BEGIN Callback01 */
+  /* USER CODE BEGIN sensorRead */
   float temperature;
   float voltage;
   float current;
-  float last_vlotage;
 
-  //iic sensor read
-  TMP112_ReadTemperature(&temperature);
-  //error process (later add)
-  INA226_readCuttent(0.0005f,&current);    //0.0005A/per
+  int temperature_err_count = 0;
+  int voltage_err_count = 0;
+  int current_err_count = 0;
 
-  INA226_readVoltage(0.00125f,&voltage);  //0.00125V/per
+  sensor_state_t state_res_temperature;
+  sensor_state_t state_res_voltage;
+  sensor_state_t state_res_current;
+  TickType_t lastWakeTime;
+  TickType_t write_time;
+  /* Infinite loop */
+  for(;;)
+  {
+    lastWakeTime = xTaskGetTickCount();
+    //iic sensor read
+    state_res_temperature = TMP112_ReadTemperature(&temperature);
+    if(state_res_temperature != SENSOR_SUCCESS) {// Handle error
+      temperature_err_count++;      
+    }
 
-  //this function just get data,later will create a new callbcak to use uart report any data in any format
+    state_res_current = INA226_readCuttent(0.0005f,&current);    //0.0005A/per
+    if(state_res_current != SENSOR_SUCCESS) {
+      current_err_count++;
+    }
 
-  last_vlotage = voltage;
+    state_res_voltage = INA226_readVoltage(0.00125f,&voltage);  //0.00125V/per
+    if(state_res_voltage != SENSOR_SUCCESS) {
+      voltage_err_count++;
+    }
 
+    // write to PowerState struct, reset error counters if they exceed threshold
+    if(PowerState_lock() == 0){
+      //error count reset
+      if(temperature_err_count >= SENSOR_ERROR_THRESHOLD){
+        temperature_err_count = 0;
+        PowerState.TMP112_state = DEVICE_OFFLINE;
+      }
+      if(voltage_err_count >= SENSOR_ERROR_THRESHOLD){
+        voltage_err_count = 0;
+        PowerState.INA226_state = DEVICE_OFFLINE;
+      }
+      if(current_err_count >= SENSOR_ERROR_THRESHOLD){
+        current_err_count = 0;
+        PowerState.INA226_state = DEVICE_OFFLINE;
+      }
+      //data write
+      write_time = xTaskGetTickCount();
+      if(state_res_temperature == SENSOR_SUCCESS){
+        PowerState.now_temperature = temperature;
+        PowerState.last_update_time_temperature = write_time;
+      }
+      if(state_res_voltage == SENSOR_SUCCESS){
+        PowerState.now_voltage = voltage;
+        PowerState.last_update_time_voltage = write_time;
+      }
+      if(state_res_current == SENSOR_SUCCESS){
+        PowerState.now_current = current;
+        PowerState.last_update_time_current = write_time;
+      }
+      PowerState_unlock();
+    }
 
-  int res = osMessageQueuePut(power_infoHandle,&last_vlotage,0,0);
-
-
-  /* USER CODE END Callback01 */
+    vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(20));  //20ms delay
+  }
+  /* USER CODE END sensorRead */
 }
 
 /* Private application code --------------------------------------------------*/
@@ -373,14 +436,16 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
     osThreadFlagsSet(buttomHandle,(uint32_t)0x00000001U);
   }
 }
-/* I2C 总线互斥：覆盖 sensors_dev.c 里的弱函数空实现
+/* I2C 总线互斥：覆盖 sensors_dev.c 里的弱函数实现
+ * 返回 0 = 已持锁；非 0 = 没取到，设备层会放弃本次总线访问并返回 ERR_BUSY
  * 互斥量在 MX_FREERTOS_Init 里创建，创建前（内核尚未启动）句柄为空，直接放行 */
-void I2C_sensor_dev_lock(void)
+int I2C_sensor_dev_lock(void)
 {
-  if(I2CAccessHandle != NULL)
+  if(I2CAccessHandle == NULL)
   {
-    osMutexAcquire(I2CAccessHandle, osWaitForever);
+    return 0;                                   //single threaded before the scheduler runs
   }
+  return (osMutexAcquire(I2CAccessHandle, I2C_LOCK_TIMEOUT_TICKS) == osOK) ? 0 : -1;
 }
 
 void I2C_sensor_dev_unlock(void)
@@ -389,6 +454,26 @@ void I2C_sensor_dev_unlock(void)
   {
     osMutexRelease(I2CAccessHandle);
   }
+}
+
+/*powerstate mutex functions*/
+/* 与 powerMaster.c 里的弱函数配对：返回 0 = 已持锁，非 0 = 没取到 */
+int PowerState_lock(void)
+{
+  if(PowerStateAcssessHandle == NULL)
+  {
+    return 0;                                   //single threaded before the scheduler runs
+  }
+  return (osMutexAcquire(PowerStateAcssessHandle, POWERSTATE_LOCK_TIMEOUT_TICKS) == osOK) ? 0 : -1;
+}
+
+int PowerState_unlock(void)
+{
+  if(PowerStateAcssessHandle == NULL)
+  {
+    return 0;
+  }
+  return (osMutexRelease(PowerStateAcssessHandle) == osOK) ? 0 : -1;
 }
 /* USER CODE END Application */
 

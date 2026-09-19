@@ -48,10 +48,14 @@ typedef enum{
 void I2C_sensor_dev_init(I2C_HandleTypeDef* hi2c1);
 
 /**
- * @brief Bus lock hooks, weak by default (empty = no locking).
+ * @brief Bus lock hooks, weak by default (return 0 = acquired).
  *        The application overrides them with a real mutex, see freertos.c.
+ *
+ * @return 0 when the lock is held and the caller may use the bus;
+ *         non-zero when it could not be taken, in which case the register
+ *         access is abandoned and SENSOR_DEV_ERR_BUSY is returned instead.
  */
-void I2C_sensor_dev_lock(void);
+int  I2C_sensor_dev_lock(void);
 void I2C_sensor_dev_unlock(void);
 
 /**

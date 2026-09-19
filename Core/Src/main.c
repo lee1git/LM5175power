@@ -105,7 +105,7 @@ int main(void)
   MX_NVIC_Init();
   /* USER CODE BEGIN 2 */
 
-  sensors_dev_init();      //bind &hi2c1 to the sensor bus layer
+  Sensors_bus_init();      //bind &hi2c1 to the sensor bus layer
 
   //500uA/per 10A/max
   if(INA226_init(INA226_init_data) == SENSOR_SUCCESS){ 
