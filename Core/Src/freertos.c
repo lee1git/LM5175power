@@ -30,6 +30,8 @@
 #include "usart.h"
 #include "sensors.h"
 #include "sensors_dev.h"
+#include "stm32_u8g2.h"
+#include "stdio.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -93,6 +95,13 @@ const osThreadAttr_t sensor_err_hand_attributes = {
   .stack_size = 64 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
+/* Definitions for screen */
+osThreadId_t screenHandle;
+const osThreadAttr_t screen_attributes = {
+  .name = "screen",
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
+};
 /* Definitions for power_info */
 osMessageQueueId_t power_infoHandle;
 const osMessageQueueAttr_t power_info_attributes = {
@@ -124,6 +133,7 @@ void buttomTask(void *argument);
 void Vlotage_pid(void *argument);
 void sensorRead(void *argument);
 void sensor_err_handle(void *argument);
+void screen_show(void *argument);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
@@ -181,6 +191,9 @@ void MX_FREERTOS_Init(void) {
 
   /* creation of sensor_err_hand */
   sensor_err_handHandle = osThreadNew(sensor_err_handle, NULL, &sensor_err_hand_attributes);
+
+  /* creation of screen */
+  screenHandle = osThreadNew(screen_show, NULL, &screen_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -267,12 +280,22 @@ void buttomTask(void *argument)
 
     temp = HAL_GPIO_ReadPin(GPIOB,GPIO_PIN_14);   //dowm,vlotage first
     if (temp == GPIO_PIN_RESET){
-      osMessageQueuePut(voltage_setHandle,&downV,0,0);
+      if(PowerState_lock() == 0)
+      {
+        PowerState.set_voltage += downV;
+        osMessageQueuePut(voltage_setHandle,&downV,0,0);
+        PowerState_unlock();
+      }
     }
 
     temp = HAL_GPIO_ReadPin(GPIOB,GPIO_PIN_15);    //up
     if (temp == GPIO_PIN_RESET){
-      osMessageQueuePut(voltage_setHandle,&upV,0,0);
+      if(PowerState_lock() == 0)
+      {
+        PowerState.set_voltage += upV;
+        osMessageQueuePut(voltage_setHandle,&upV,0,0);
+        PowerState_unlock();
+      }
     }
 
     final:    //no lock held here any more
@@ -320,12 +343,13 @@ void Vlotage_pid(void *argument)
         check_over = 0;
       }
 
-      if(osMessageQueueGet(voltage_setHandle,&voltage_change,0,0) == osOK){
-        if(set_voltage + voltage_change < 1.0f)set_voltage = 1.0f;
-        else if(set_voltage + voltage_change > 15.5f)set_voltage = 15.5f;
-        else set_voltage += voltage_change;
-        PowerState.set_voltage = set_voltage;   //update the set voltage in the shared struct
-      }
+      // if(osMessageQueueGet(voltage_setHandle,&voltage_change,0,0) == osOK){
+      //   if(set_voltage + voltage_change < 1.0f)set_voltage = 1.0f;
+      //   else if(set_voltage + voltage_change > 15.5f)set_voltage = 15.5f;
+      //   else set_voltage += voltage_change;
+      //   PowerState.set_voltage = set_voltage;   //update the set voltage in the shared struct
+      // }
+      set_voltage = PowerState.set_voltage;
 
       if(PowerState.INA226_state == DEVICE_OFFLINE){
         integral = 0;
@@ -475,7 +499,7 @@ void sensor_err_handle(void *argument)
   /* Infinite loop */
   for(;;)
   {
-    vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(1000));  //1s delay
+    vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(200));  //200ms delay
 
     if(PowerState_lock() == 0){
       PowerState_copy = PowerState;
@@ -489,7 +513,7 @@ void sensor_err_handle(void *argument)
     }
 
     if(PowerState_copy.I2C1_state == DEVICE_OFFLINE){
-      if(sensors_outerdev_init() == 0){
+      if(Sensors_bus_restart() == 0){
         PowerState_copy.I2C1_state = DEVICE_ONLINE;   //try to recover the bus
       }
     }
@@ -521,6 +545,72 @@ void sensor_err_handle(void *argument)
     }//lock not acquired: skip this round
   }
   /* USER CODE END sensor_err_handle */
+}
+
+/* USER CODE BEGIN Header_screen_show */
+/**
+* @brief Function implementing the screen thread.
+* @param argument: Not used
+* @retval None
+*/
+extern u8g2_t u8g2;
+/* USER CODE END Header_screen_show */
+void screen_show(void *argument)
+{
+  /* USER CODE BEGIN screen_show */
+  char* buffer[20] = {0};
+  struct PowerStatus_t PowerState_copy_last;
+  struct PowerStatus_t PowerState_copy;
+  TickType_t lastWakeTime = xTaskGetTickCount();  //period base
+  int first_flag = 0;
+  int change_flag = 0;
+  /* Infinite loop */
+  for(;;)
+  {
+    vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(200));  //200ms delay
+    if(PowerState_lock() == 0){
+      PowerState_copy = PowerState;
+      PowerState_unlock();
+    }else{
+      continue;
+    }
+
+    if(first_flag == 0){
+      u8g2_SetFont(&u8g2, u8g2_font_6x10_tr);
+	    sprintf(buffer,"Vset :%05.2fV",PowerState_copy.set_voltage);
+      u8g2_DrawStr(&u8g2, 0, 10, buffer); 
+	    sprintf(buffer,"Iset :%05.2fA",PowerState_copy.set_current);
+      u8g2_DrawStr(&u8g2, 0, 18, buffer);
+      
+	    u8g2_SendBuffer(&u8g2);
+      u8g2_NextPage(&u8g2);
+      PowerState_copy_last = PowerState_copy;
+	    first_flag = 1;
+      continue;
+    }
+
+    if(PowerState_copy.set_current != PowerState_copy_last.set_current){
+      u8g2_SetFont(&u8g2, u8g2_font_6x10_tr);
+	    sprintf(buffer,"Iset :%05.2fA",PowerState_copy.set_current);
+      u8g2_DrawStr(&u8g2, 0, 18, buffer);
+      change_flag = 1;
+    }
+
+    if(PowerState_copy.set_voltage != PowerState_copy_last.set_voltage){
+      u8g2_SetFont(&u8g2, u8g2_font_6x10_tr);
+	    sprintf(buffer,"Vset :%05.2fV",PowerState_copy.set_voltage);
+      u8g2_DrawStr(&u8g2, 0, 10, buffer); 
+      change_flag = 1;
+    }
+
+    if(change_flag >= 1){
+      u8g2_SendBuffer(&u8g2);
+      u8g2_NextPage(&u8g2);
+      change_flag = 0;
+    }
+    PowerState_copy_last = PowerState_copy;
+  }
+  /* USER CODE END screen_show */
 }
 
 /* Private application code --------------------------------------------------*/

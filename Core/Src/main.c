@@ -30,6 +30,7 @@
 #include "sensors.h"
 #include "powerMaster.h"
 #include "math.h"
+#include "stm32_u8g2.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -66,6 +67,7 @@ static void MX_NVIC_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 struct sensor_INA226_init INA226_init_data = {INA226_calibration_10A_6mOhm};
+u8g2_t u8g2;
 /* USER CODE END 0 */
 
 /**
@@ -101,20 +103,16 @@ int main(void)
   MX_TIM2_Init();
   MX_TIM3_Init();
   MX_USART2_UART_Init();
+  MX_I2C2_Init();
+  MX_TIM1_Init();
 
   /* Initialize interrupts */
   MX_NVIC_Init();
   /* USER CODE BEGIN 2 */
 
   Sensors_bus_init();      //bind &hi2c1 to the sensor bus layer
-
-  //500uA/per 10A/max
-  if(INA226_init(INA226_init_data) == SENSOR_SUCCESS){ 
-    HAL_UART_Transmit(&huart2,(uint8_t*)"INA:initOK\r\n",12,HAL_MAX_DELAY);
-  }
-  else{
-    HAL_UART_Transmit(&huart2,(uint8_t*)"INA:ERR\r\n",9,HAL_MAX_DELAY);
-  }
+  // u8g2 init
+  u8g2Init(&u8g2);
 
   HAL_TIM_PWM_Start(&htim2,TIM_CHANNEL_1);
   HAL_TIM_PWM_Start(&htim3,TIM_CHANNEL_1);

@@ -118,6 +118,7 @@ static int I2C_release_bus(GPIO_TypeDef* GPIOx, uint16_t SCL_Pin, uint16_t SDA_P
 
 int I2C_Restart(sensor_dev_i2c_t i2c)
 {
+    assert(I2C_INUSE(i2c));  // Ensure the I2C device is in use
     switch (i2c)
     {
     case SENSOR_DEV_I2C1:
