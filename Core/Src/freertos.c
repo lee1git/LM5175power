@@ -116,7 +116,7 @@ const osMutexAttr_t I2CAccess_attributes = {
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
-uint16_t pid_calculate(float target_voltage, float actual_voltage);
+extern int16_t pid_calculate(float target_voltage, float actual_voltage);
 /* USER CODE END FunctionPrototypes */
 
 void StartDefaultTask(void *argument);
@@ -293,14 +293,16 @@ void Vlotage_pid(void *argument)
   /* USER CODE BEGIN Vlotage_pid */
   float set_voltage=6.0f;
   float new_voltage;  //V
+  int16_t voltage_change = 0;
   uint16_t now_pulse = 500;       //initial PWM pulse width, just a magic number
-  uint16_t pwm_pulse;
+  int16_t pwm_pulse;
   TickType_t lastWakeTime = xTaskGetTickCount();   //period base, taken once outside the loop
   uint8_t check_over = 1;
   /* Infinite loop */
   for(;;)
   {
     check_over = 1;                                //assume all checks pass, cleared on any fault
+    voltage_change = 0;                             //reset the voltage change flag
     
     if(PowerState_lock() == 0){
 
@@ -318,7 +320,12 @@ void Vlotage_pid(void *argument)
         check_over = 0;
       }
 
-      set_voltage = PowerState.set_voltage;
+      if(osMessageQueueGet(voltage_setHandle,&voltage_change,0,0) == osOK){
+        if(set_voltage + voltage_change < 1.0f)set_voltage = 1.0f;
+        else if(set_voltage + voltage_change > 15.5f)set_voltage = 15.5f;
+        else set_voltage += voltage_change;
+        PowerState.set_voltage = set_voltage;   //update the set voltage in the shared struct
+      }
 
       if(PowerState.INA226_state == DEVICE_OFFLINE){
         integral = 0;
@@ -333,10 +340,14 @@ void Vlotage_pid(void *argument)
 
     if(check_over == 1){          //all checks passed: this round may drive the PWM
       pwm_pulse = pid_calculate(set_voltage,new_voltage);
-      pwm_pulse += now_pulse;
-      if(pwm_pulse > 800)pwm_pulse = 800;
-      if(pwm_pulse < 300)pwm_pulse = 300;
-      __HAL_TIM_SET_COMPARE(&htim3,TIM_CHANNEL_1,pwm_pulse);
+      // pwm_pulse += now_pulse;
+      now_pulse += pwm_pulse;   //update the last known pulse width
+      // if(pwm_pulse > 800)pwm_pulse = 800;
+      // if(pwm_pulse < 300)pwm_pulse = 300;
+      // __HAL_TIM_SET_COMPARE(&htim3,TIM_CHANNEL_1,pwm_pulse);
+      if(now_pulse > 800)now_pulse = 800;
+      if(now_pulse < 300)now_pulse = 300;
+      __HAL_TIM_SET_COMPARE(&htim3,TIM_CHANNEL_1,now_pulse);
     }
 
     vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(20));  //20ms period
@@ -468,6 +479,10 @@ void sensor_err_handle(void *argument)
 
     if(PowerState_lock() == 0){
       PowerState_copy = PowerState;
+      if(PowerState_copy.INA226_state == DEVICE_OFFLINE && PowerState_copy.TMP112_state == DEVICE_OFFLINE){
+        PowerState_copy.I2C1_state = DEVICE_OFFLINE;   //if both sensors are offline, the bus is likely offline too
+        PowerState.I2C1_state = DEVICE_OFFLINE;   //update the shared struct immediately
+      }
       PowerState_unlock();
     }else{
       continue;   //lock not acquired: skip this round

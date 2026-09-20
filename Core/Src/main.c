@@ -29,6 +29,7 @@
 #include "stdio.h"
 #include "sensors.h"
 #include "powerMaster.h"
+#include "math.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -201,40 +202,50 @@ static void MX_NVIC_Init(void)
 
 
 //pid
-float Kp = -30.5;    //比例系数
-float Ki = -1.8;   //积分系数
-float Kd = -0.0;     //微分系数
+float Kp_big_gap = -4.8;    //比例系数
+float Kp_small_gap = -0.7;    //比例系数
+float Ki = -0.030;   //积分系数
+float Kd = -0.004;     //微分系数
+#define INTEGRAL_LIMIT 500.0f  //积分限幅，防止积分饱和
+#define INTEGRAL_DECAY 0.9f    //积分衰减系数，防止积分饱和
+#define INTEGRAL_DEADZONE 0.05f  //积分死区，防止积分饱和
 
 // PID 状态
 float integral = 0;
 float last_error = 0;
+float last_derivative = 0;
 
 // PID 计算函数
 // 输入：设定电压 target_voltage，实际电压 actual_voltage
 // 输出：PWM pulse 值
-uint16_t pid_calculate(float target_voltage, float actual_voltage) {
+int16_t pid_calculate(float target_voltage, float actual_voltage) {
     // 1. 计算误差
     float error = target_voltage - actual_voltage;
+    float Kp = (fabs(error) > 1.0f) ? Kp_big_gap : Kp_small_gap;  //根据误差大小选择比例系数
 
     // 2. 积分项累加
-    integral += error;
+    if(error > INTEGRAL_DEADZONE || error < -INTEGRAL_DEADZONE) {
+        integral += error;
+    }
+    if(integral > INTEGRAL_LIMIT) integral = INTEGRAL_LIMIT;
+    if(integral < -INTEGRAL_LIMIT) integral = -INTEGRAL_LIMIT;
 
     // 3. 微分项计算
     float derivative = error - last_error;
 
     // 4. PID 输出
-    float output = Kp * error + Ki * integral + Kd * derivative;
-
+    float output = Kp * error + Ki * integral + (Kd * derivative * 0.1 + last_derivative * 0.9);  //微分项加权平均，减少噪声影响
+    last_derivative = derivative;  //保存当前微分项，用于下一次计算
     // 5. 更新上次误差
     last_error = error;
 
     // 6. 把输出映射到 PWM pulse 范围
     // 假设 PWM 周期为 1000，输出范围为 0~1000
-    int pulse = (int)(output);
+    int16_t pulse = (int16_t)(output);
     // if (pulse < 300) pulse = 300;
     // if (pulse > 800) pulse = 800;
 
-    return (uint16_t)pulse;   //这里希望把pulse变为一个在基准值上改动的值
+    return pulse;   //这里希望把pulse变为一个在基准值上改动的值
 }
 
 /* USER CODE END 4 */
