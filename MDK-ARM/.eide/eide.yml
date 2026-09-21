@@ -3,7 +3,8 @@ name: power_control
 type: ARM
 deviceName: STM32F103C8
 packDir: .pack/Keil/STM32F1xx_DFP.2.2.0
-srcDirs: []
+srcDirs:
+  - ../3rdParty
 virtualFolder:
   name: <virtual_root>
   files: []
@@ -31,7 +32,7 @@ virtualFolder:
                 - path: ../Core/Src/stm32f1xx_hal_msp.c
                 - path: ../Core/Src/stm32f1xx_hal_timebase_tim.c
               folders: []
-        - name: master
+        - name: app
           files:
             - path: ../Core/app/powerMaster.c
           folders: []
@@ -60,60 +61,6 @@ virtualFolder:
           files:
             - path: ../Core/Src/system_stm32f1xx.c
           folders: []
-        - name: u8g2
-          files:
-            - path: ../../../../3rdParty/u8g2-master/sh1106/sh1106csrc/mui.c
-            - path: ../../../../3rdParty/u8g2-master/sh1106/sh1106csrc/mui.h
-            - path: ../../../../3rdParty/u8g2-master/sh1106/sh1106csrc/mui_u8g2.c
-            - path: ../../../../3rdParty/u8g2-master/sh1106/sh1106csrc/mui_u8g2.h
-            - path: ../../../../3rdParty/u8g2-master/sh1106/sh1106csrc/u8g2.h
-            - path: ../../../../3rdParty/u8g2-master/sh1106/sh1106csrc/u8g2_arc.c
-            - path: ../../../../3rdParty/u8g2-master/sh1106/sh1106csrc/u8g2_bitmap.c
-            - path: ../../../../3rdParty/u8g2-master/sh1106/sh1106csrc/u8g2_box.c
-            - path: ../../../../3rdParty/u8g2-master/sh1106/sh1106csrc/u8g2_buffer.c
-            - path: ../../../../3rdParty/u8g2-master/sh1106/sh1106csrc/u8g2_button.c
-            - path: ../../../../3rdParty/u8g2-master/sh1106/sh1106csrc/u8g2_circle.c
-            - path: ../../../../3rdParty/u8g2-master/sh1106/sh1106csrc/u8g2_cleardisplay.c
-            - path: ../../../../3rdParty/u8g2-master/sh1106/sh1106csrc/u8g2_d_memory.c
-            - path: ../../../../3rdParty/u8g2-master/sh1106/sh1106csrc/u8g2_d_setup.c
-            - path: ../../../../3rdParty/u8g2-master/sh1106/sh1106csrc/u8g2_font.c
-            - path: ../../../../3rdParty/u8g2-master/sh1106/sh1106csrc/u8g2_fonts.c
-            - path: ../../../../3rdParty/u8g2-master/sh1106/sh1106csrc/u8g2_hvline.c
-            - path: ../../../../3rdParty/u8g2-master/sh1106/sh1106csrc/u8g2_input_value.c
-            - path: ../../../../3rdParty/u8g2-master/sh1106/sh1106csrc/u8g2_intersection.c
-            - path: ../../../../3rdParty/u8g2-master/sh1106/sh1106csrc/u8g2_kerning.c
-            - path: ../../../../3rdParty/u8g2-master/sh1106/sh1106csrc/u8g2_line.c
-            - path: ../../../../3rdParty/u8g2-master/sh1106/sh1106csrc/u8g2_ll_hvline.c
-            - path: ../../../../3rdParty/u8g2-master/sh1106/sh1106csrc/u8g2_message.c
-            - path: ../../../../3rdParty/u8g2-master/sh1106/sh1106csrc/u8g2_polygon.c
-            - path: ../../../../3rdParty/u8g2-master/sh1106/sh1106csrc/u8g2_selection_list.c
-            - path: ../../../../3rdParty/u8g2-master/sh1106/sh1106csrc/u8g2_setup.c
-            - path: ../../../../3rdParty/u8g2-master/sh1106/sh1106csrc/u8log.c
-            - path: ../../../../3rdParty/u8g2-master/sh1106/sh1106csrc/u8log_u8g2.c
-            - path: ../../../../3rdParty/u8g2-master/sh1106/sh1106csrc/u8log_u8x8.c
-            - path: ../../../../3rdParty/u8g2-master/sh1106/sh1106csrc/u8x8.h
-            - path: ../../../../3rdParty/u8g2-master/sh1106/sh1106csrc/u8x8_8x8.c
-            - path: ../../../../3rdParty/u8g2-master/sh1106/sh1106csrc/u8x8_byte.c
-            - path: ../../../../3rdParty/u8g2-master/sh1106/sh1106csrc/u8x8_cad.c
-            - path: ../../../../3rdParty/u8g2-master/sh1106/sh1106csrc/u8x8_capture.c
-            - path: ../../../../3rdParty/u8g2-master/sh1106/sh1106csrc/u8x8_d_ssd1306_128x64_noname.c
-            - path: ../../../../3rdParty/u8g2-master/sh1106/sh1106csrc/u8x8_debounce.c
-            - path: ../../../../3rdParty/u8g2-master/sh1106/sh1106csrc/u8x8_display.c
-            - path: ../../../../3rdParty/u8g2-master/sh1106/sh1106csrc/u8x8_fonts.c
-            - path: ../../../../3rdParty/u8g2-master/sh1106/sh1106csrc/u8x8_gpio.c
-            - path: ../../../../3rdParty/u8g2-master/sh1106/sh1106csrc/u8x8_input_value.c
-            - path: ../../../../3rdParty/u8g2-master/sh1106/sh1106csrc/u8x8_message.c
-            - path: ../../../../3rdParty/u8g2-master/sh1106/sh1106csrc/u8x8_selection_list.c
-            - path: ../../../../3rdParty/u8g2-master/sh1106/sh1106csrc/u8x8_setup.c
-            - path: ../../../../3rdParty/u8g2-master/sh1106/sh1106csrc/u8x8_string.c
-            - path: ../../../../3rdParty/u8g2-master/sh1106/sh1106csrc/u8x8_u8toa.c
-            - path: ../../../../3rdParty/u8g2-master/sh1106/sh1106csrc/u8x8_u16toa.c
-          folders:
-            - name: stm32
-              files:
-                - path: ../../../../3rdParty/u8g2-master/sh1106/sh1106csrc/stm32_u8g2/stm32_u8g2.c
-                - path: ../../../../3rdParty/u8g2-master/sh1106/sh1106csrc/stm32_u8g2/stm32_u8g2.h
-              folders: []
     - name: Middlewares
       files: []
       folders:
@@ -169,10 +116,52 @@ targets:
         - ../Core/app/inc
         - .cmsis/include
         - RTE/_power_control
-        - ../../../../3rdParty/u8g2-master/sh1106/sh1106csrc
-        - ../../../../3rdParty/u8g2-master/sh1106/sh1106csrc/stm32_u8g2
+        - ../3rdParty/u8g2/stm32_u8g2
+        - ../3rdParty/u8g2
       libList: []
-    excludeList: []
+    excludeList:
+      - <virtual_root>/Drivers/u8g2/mui_u8g2.c
+      - <virtual_root>/Drivers/u8g2/mui.c
+      - <virtual_root>/Drivers/u8g2/u8g2_arc.c
+      - <virtual_root>/Drivers/u8g2/u8g2_bitmap.c
+      - <virtual_root>/Drivers/u8g2/u8g2_box.c
+      - <virtual_root>/Drivers/u8g2/u8g2_buffer.c
+      - <virtual_root>/Drivers/u8g2/u8g2_button.c
+      - <virtual_root>/Drivers/u8g2/u8g2_circle.c
+      - <virtual_root>/Drivers/u8g2/u8g2_cleardisplay.c
+      - <virtual_root>/Drivers/u8g2/u8g2_d_memory.c
+      - <virtual_root>/Drivers/u8g2/u8g2_d_setup.c
+      - <virtual_root>/Drivers/u8g2/u8g2_font.c
+      - <virtual_root>/Drivers/u8g2/u8g2_fonts.c
+      - <virtual_root>/Drivers/u8g2/u8g2_hvline.c
+      - <virtual_root>/Drivers/u8g2/u8g2_input_value.c
+      - <virtual_root>/Drivers/u8g2/u8g2_intersection.c
+      - <virtual_root>/Drivers/u8g2/u8g2_kerning.c
+      - <virtual_root>/Drivers/u8g2/u8g2_line.c
+      - <virtual_root>/Drivers/u8g2/u8g2_ll_hvline.c
+      - <virtual_root>/Drivers/u8g2/u8g2_message.c
+      - <virtual_root>/Drivers/u8g2/u8g2_polygon.c
+      - <virtual_root>/Drivers/u8g2/u8g2_selection_list.c
+      - <virtual_root>/Drivers/u8g2/u8g2_setup.c
+      - <virtual_root>/Drivers/u8g2/u8log_u8g2.c
+      - <virtual_root>/Drivers/u8g2/u8log_u8x8.c
+      - <virtual_root>/Drivers/u8g2/u8log.c
+      - <virtual_root>/Drivers/u8g2/u8x8_8x8.c
+      - <virtual_root>/Drivers/u8g2/u8x8_byte.c
+      - <virtual_root>/Drivers/u8g2/u8x8_cad.c
+      - <virtual_root>/Drivers/u8g2/u8x8_capture.c
+      - <virtual_root>/Drivers/u8g2/u8x8_d_ssd1306_128x64_noname.c
+      - <virtual_root>/Drivers/u8g2/u8x8_debounce.c
+      - <virtual_root>/Drivers/u8g2/u8x8_display.c
+      - <virtual_root>/Drivers/u8g2/u8x8_fonts.c
+      - <virtual_root>/Drivers/u8g2/u8x8_gpio.c
+      - <virtual_root>/Drivers/u8g2/u8x8_input_value.c
+      - <virtual_root>/Drivers/u8g2/u8x8_message.c
+      - <virtual_root>/Drivers/u8g2/u8x8_selection_list.c
+      - <virtual_root>/Drivers/u8g2/u8x8_setup.c
+      - <virtual_root>/Drivers/u8g2/u8x8_string.c
+      - <virtual_root>/Drivers/u8g2/u8x8_u16toa.c
+      - <virtual_root>/Drivers/u8g2/u8x8_u8toa.c
     settings:
       debugger: cortex-debug
     toolchain: AC6

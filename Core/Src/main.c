@@ -31,6 +31,7 @@
 #include "powerMaster.h"
 #include "math.h"
 #include "stm32_u8g2.h"
+#include "power_config.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -117,7 +118,7 @@ int main(void)
   HAL_TIM_PWM_Start(&htim2,TIM_CHANNEL_1);
   HAL_TIM_PWM_Start(&htim3,TIM_CHANNEL_1);
 
-  PowerStateInit(PWR_EN_OFF,6.0f,10.0f);  
+  PowerStateInit(POWER_SETUP_OUT_STATE,POWER_SETUP_VOLTAGE_SET,POWER_SETUP_CURRENT_LIMIT);  
   /* USER CODE END 2 */
 
   /* Init scheduler */

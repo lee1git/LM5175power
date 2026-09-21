@@ -32,6 +32,7 @@
 #include "sensors_dev.h"
 #include "stm32_u8g2.h"
 #include "stdio.h"
+#include "power_config.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -102,16 +103,6 @@ const osThreadAttr_t screen_attributes = {
   .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
-/* Definitions for power_info */
-osMessageQueueId_t power_infoHandle;
-const osMessageQueueAttr_t power_info_attributes = {
-  .name = "power_info"
-};
-/* Definitions for voltage_set */
-osMessageQueueId_t voltage_setHandle;
-const osMessageQueueAttr_t voltage_set_attributes = {
-  .name = "voltage_set"
-};
 /* Definitions for PowerStateAcssess */
 osMutexId_t PowerStateAcssessHandle;
 const osMutexAttr_t PowerStateAcssess_attributes = {
@@ -164,13 +155,6 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN RTOS_TIMERS */
   /* start timers, add new ones, ... */
   /* USER CODE END RTOS_TIMERS */
-
-  /* Create the queue(s) */
-  /* creation of power_info */
-  power_infoHandle = osMessageQueueNew (4, sizeof(float), &power_info_attributes);
-
-  /* creation of voltage_set */
-  voltage_setHandle = osMessageQueueNew (4, sizeof(int16_t), &voltage_set_attributes);
 
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
@@ -234,12 +218,11 @@ void buttomTask(void *argument)
 {
   /* USER CODE BEGIN buttomTask */
   int temp = 0;
-  const int16_t upV = 1;
-  const int16_t downV = -1;
   osStatus_t result;
   /* Infinite loop */
   for(;;)
   {
+    osDelay(pdMS_TO_TICKS(120));
     osThreadFlagsWait((uint32_t)0x00000001U,osFlagsWaitAny,osWaitForever);//wait EXIT
     osDelay(pdMS_TO_TICKS(20));   //
 
@@ -270,7 +253,7 @@ void buttomTask(void *argument)
       else{
         //lock not acquired: leave PowerState untouched this round
       }
-      goto final;
+      continue;
     }
 
     temp = HAL_GPIO_ReadPin(GPIOB,GPIO_PIN_13);   //vlotage limit&current limit switch
@@ -282,8 +265,10 @@ void buttomTask(void *argument)
     if (temp == GPIO_PIN_RESET){
       if(PowerState_lock() == 0)
       {
-        PowerState.set_voltage += downV;
-        osMessageQueuePut(voltage_setHandle,&downV,0,0);
+        if(PowerState.set_voltage + POWER_VOLTAGE_DOWN_STEP < POWER_MIN_VOLTAGE)
+          PowerState.set_voltage = POWER_MIN_VOLTAGE;
+        else
+          PowerState.set_voltage += POWER_VOLTAGE_DOWN_STEP;
         PowerState_unlock();
       }
     }
@@ -292,14 +277,14 @@ void buttomTask(void *argument)
     if (temp == GPIO_PIN_RESET){
       if(PowerState_lock() == 0)
       {
-        PowerState.set_voltage += upV;
-        osMessageQueuePut(voltage_setHandle,&upV,0,0);
+        if(PowerState.set_voltage + POWER_VOLTAGE_UP_STEP > POWER_MAX_VOLTAGE)
+          PowerState.set_voltage = POWER_MAX_VOLTAGE;
+        else
+          PowerState.set_voltage += POWER_VOLTAGE_UP_STEP;
         PowerState_unlock();
       }
     }
 
-    final:    //no lock held here any more
-    osDelay(pdMS_TO_TICKS(180));
   }
   /* USER CODE END buttomTask */
 }
@@ -314,7 +299,7 @@ void buttomTask(void *argument)
 void Vlotage_pid(void *argument)
 {
   /* USER CODE BEGIN Vlotage_pid */
-  float set_voltage=6.0f;
+  float set_voltage = POWER_SETUP_VOLTAGE_SET;
   float new_voltage;  //V
   int16_t voltage_change = 0;
   uint16_t now_pulse = 500;       //initial PWM pulse width, just a magic number
@@ -343,12 +328,6 @@ void Vlotage_pid(void *argument)
         check_over = 0;
       }
 
-      // if(osMessageQueueGet(voltage_setHandle,&voltage_change,0,0) == osOK){
-      //   if(set_voltage + voltage_change < 1.0f)set_voltage = 1.0f;
-      //   else if(set_voltage + voltage_change > 15.5f)set_voltage = 15.5f;
-      //   else set_voltage += voltage_change;
-      //   PowerState.set_voltage = set_voltage;   //update the set voltage in the shared struct
-      // }
       set_voltage = PowerState.set_voltage;
 
       if(PowerState.INA226_state == DEVICE_OFFLINE){
@@ -364,11 +343,7 @@ void Vlotage_pid(void *argument)
 
     if(check_over == 1){          //all checks passed: this round may drive the PWM
       pwm_pulse = pid_calculate(set_voltage,new_voltage);
-      // pwm_pulse += now_pulse;
       now_pulse += pwm_pulse;   //update the last known pulse width
-      // if(pwm_pulse > 800)pwm_pulse = 800;
-      // if(pwm_pulse < 300)pwm_pulse = 300;
-      // __HAL_TIM_SET_COMPARE(&htim3,TIM_CHANNEL_1,pwm_pulse);
       if(now_pulse > 800)now_pulse = 800;
       if(now_pulse < 300)now_pulse = 300;
       __HAL_TIM_SET_COMPARE(&htim3,TIM_CHANNEL_1,now_pulse);
@@ -558,12 +533,11 @@ extern u8g2_t u8g2;
 void screen_show(void *argument)
 {
   /* USER CODE BEGIN screen_show */
-  char* buffer[20] = {0};
+  char buffer[20] = {0};
   struct PowerStatus_t PowerState_copy_last;
   struct PowerStatus_t PowerState_copy;
   TickType_t lastWakeTime = xTaskGetTickCount();  //period base
   int first_flag = 0;
-  int change_flag = 0;
   /* Infinite loop */
   for(;;)
   {
@@ -576,6 +550,7 @@ void screen_show(void *argument)
     }
 
     if(first_flag == 0){
+      u8g2_ClearBuffer(&u8g2);
       u8g2_SetFont(&u8g2, u8g2_font_6x10_tr);
 	    sprintf(buffer,"Vset :%05.2fV",PowerState_copy.set_voltage);
       u8g2_DrawStr(&u8g2, 0, 10, buffer); 
@@ -583,31 +558,19 @@ void screen_show(void *argument)
       u8g2_DrawStr(&u8g2, 0, 18, buffer);
       
 	    u8g2_SendBuffer(&u8g2);
-      u8g2_NextPage(&u8g2);
       PowerState_copy_last = PowerState_copy;
 	    first_flag = 1;
       continue;
     }
 
-    if(PowerState_copy.set_current != PowerState_copy_last.set_current){
-      u8g2_SetFont(&u8g2, u8g2_font_6x10_tr);
-	    sprintf(buffer,"Iset :%05.2fA",PowerState_copy.set_current);
-      u8g2_DrawStr(&u8g2, 0, 18, buffer);
-      change_flag = 1;
-    }
+    u8g2_ClearBuffer(&u8g2);
+    u8g2_SetFont(&u8g2, u8g2_font_6x10_tr);
+    sprintf(buffer,"Iset :%05.2fA",PowerState_copy.set_current);
+    u8g2_DrawStr(&u8g2, 0, 18, buffer);
+    sprintf(buffer,"Vset :%05.2fV",PowerState_copy.set_voltage);
+    u8g2_DrawStr(&u8g2, 0, 10, buffer); 
 
-    if(PowerState_copy.set_voltage != PowerState_copy_last.set_voltage){
-      u8g2_SetFont(&u8g2, u8g2_font_6x10_tr);
-	    sprintf(buffer,"Vset :%05.2fV",PowerState_copy.set_voltage);
-      u8g2_DrawStr(&u8g2, 0, 10, buffer); 
-      change_flag = 1;
-    }
-
-    if(change_flag >= 1){
-      u8g2_SendBuffer(&u8g2);
-      u8g2_NextPage(&u8g2);
-      change_flag = 0;
-    }
+    u8g2_SendBuffer(&u8g2);
     PowerState_copy_last = PowerState_copy;
   }
   /* USER CODE END screen_show */
