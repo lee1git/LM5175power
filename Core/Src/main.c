@@ -201,10 +201,10 @@ static void MX_NVIC_Init(void)
 
 
 //pid
-float Kp_big_gap = -4.8;    //比例系数
-float Kp_small_gap = -0.7;    //比例系数
-float Ki = -0.030;   //积分系数
-float Kd = -0.004;     //微分系数
+float Kp_big_gap = -5.0;    //比例系数
+float Kp_small_gap = -1.2;    //比例系数
+float Ki = -0.024;   //积分系数
+float Kd = -0.002;     //微分系数
 #define INTEGRAL_LIMIT 500.0f  //积分限幅，防止积分饱和
 #define INTEGRAL_DECAY 0.9f    //积分衰减系数，防止积分饱和
 #define INTEGRAL_DEADZONE 0.05f  //积分死区，防止积分饱和

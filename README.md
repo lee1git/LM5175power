@@ -12,16 +12,17 @@
 | 最高温度 | 65 ℃ |
 | 短路 | LM5175 限流 + 打嗝保护自动闭锁，故障解除后自恢复 |
 | 固件体积 | ROM 39.4 KB / 64 KB，RAM 14.4 KB / 20 KB |
+| OLED 单帧刷新 | ≈ 23 ms（1 KB 帧缓冲 @400 kHz I2C） |
 | 编译 | ARM Compiler 6（armclang V6.24），0 错 0 警 |
 
 ## 硬件
 
 - 主控：STM32F103C8T6 @72 MHz（HSE）
 - 功率级：LM5175 四开关升降压，自研 PCB 与焊接
-- 采样：INA226（电压 / 电流，I2C1）+ TMP112（温度，I2C1）
-- 显示：SH1106 128×64 OLED（I2C2）
+- 采样：INA226（电压 / 电流）+ TMP112（温度），同挂 I2C1（100 kHz）
+- 显示：SH1106 128×64 OLED，挂 I2C2（400 kHz）
 - 交互：PA8 输出使能键、PB13/PB14/PB15 限流切换 / 降压 / 升压、PC13 状态灯、PA9 输出使能电平（均带 EXTI 唤醒）
-- 控制：TIM3_CH1（PA6）输出 18 kHz PWM，比较值由 PID 调节；TIM2_CH1（PA0）另有一路 PWM；TIM1 供微秒级延时；USART2（PA2/PA3）预留上位机通讯
+- 控制：TIM3_CH1（PA6）输出 18 kHz PWM，比较值由 PID 调节；TIM2_CH1（PA0）另有一路 PWM；TIM1（1 µs 时基）供微秒级延时；USART2（PA2/PA3）预留上位机通讯
 
 ## 软件架构
 
@@ -72,12 +73,13 @@ Core/Src/          CubeMX 生成的 HAL 初始化与任务骨架（freertos.c �
 ## 已知限制 / 待办
 
 - `sensorRead()` 在总线离线分支未清结果变量，可能把上一轮的值当成功写回并刷新时间戳
+- `state_res_*` 与三个器件状态局部量未初始化，首次取锁失败会读到栈上残留值
 - 未启用栈溢出与 malloc 失败检测（`configCHECK_FOR_STACK_OVERFLOW` 等），任务句柄未判空
 - 各任务栈水位与堆峰值尚未实测
-- `3rdParty/u8g2/u8g2_fonts.c` 约 38 MB，实际只用到 `u8g2_font_6x10_tr`
-- OLED 每 200 ms 全屏重刷 1 KB @100 kHz ≈ 90 ms，可把 I2C2 提到 400 kHz
-- `configUSE_TIMERS` 为 1，但工程未使用软件定时器
 - 死变量：`PowerState_copy_last`、`voltage_change`
+- `configUSE_TIMERS` 为 1 但工程未使用软件定时器，关掉可回收约 850 B 堆
+- `3rdParty/u8g2/u8x8_fonts.c` 仍有 1.5 MB 未被使用，可继续精简
+- 仓库尚未添加 `.gitattributes`，工作区存在纯行尾差异噪音
 
 ## 开发日志
 

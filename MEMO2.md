@@ -376,3 +376,41 @@
 - 清掉 PowerState_copy_last 与 voltage_change 两个死变量。
 - 加 .gitattributes 与 renormalize，清掉 30 条行尾噪音。
 - 未用软件定时器，configUSE_TIMERS 可关，省约 850 字节堆。
+
+## 2026-09-22 · 第 29 次（本日第 1 次）：字体瘦身与 I2C 加速核对
+
+### 【你】本轮改动
+- u8g2_fonts.c 由 37.93MB 精简到 0.03MB，只留四个字体。
+- 3rdParty 合计由 41.3MB 降到 2.42MB。
+- I2C2 由 100kHz 提到 400kHz，模式改为 Fast。
+- TIM1 预分频由 17 改 71，延时基准变成 1 微秒。
+
+### 【我】核对结论
+- u8g2_font_6x10_tr 定义在精简后文件第 13 行，能链上。
+- 最新构建 09-22 10:13，0 错 0 警，ROM 39.4KB，RAM 14.4KB。
+- 屏幕单帧刷新由约 90ms 降到约 23ms。
+- I2C2 与 TIM1 这两处改动尚未提交，其余已入库。
+
+### 【我】仍未修项
+- state_res 三个变量与三个器件状态量仍未初始化。
+- 总线离线分支仍未把结果变量置 SENSOR_SKIP。
+- 无栈溢出与 malloc 失败检测，任务句柄未判空。
+- 栈水位与堆峰值未实测。
+- voltage_change 与 PowerState_copy_last 仍是死变量。
+- configUSE_TIMERS 仍为 1，无软件定时器在用。
+- 无 .gitattributes，工作区仍有行尾噪音。
+- u8x8_fonts.c 仍有 1.53MB，未用可再精简。
+
+### 【我】产出
+- README 已按本轮结果更新：指标表加刷新耗时，硬件补 I2C 速率，待办重写。
+
+## 待办（第 29 次）
+- 提交 I2C2 400kHz 与 TIM1 预分频这两处改动。
+- 循环开头置三个 state_res 为 SENSOR_SKIP，状态量初始化。
+- 开栈溢出与 malloc 失败钩子，任务句柄逐个判空。
+- 实测各任务栈水位与堆峰值。
+- 清掉 PowerState_copy_last 与 voltage_change 两个死变量。
+- 加 .gitattributes 与 renormalize，清掉行尾噪音。
+- 未用软件定时器，configUSE_TIMERS 可关，省约 850 字节堆。
+- u8x8_fonts.c 还有 1.53MB 未用，可继续精简。
+- I2C1 传感器总线也可考虑提到 400kHz（可选）。

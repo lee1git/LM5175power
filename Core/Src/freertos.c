@@ -351,7 +351,7 @@ void Vlotage_pid(void *argument)
       __HAL_TIM_SET_COMPARE(&htim3,TIM_CHANNEL_1,now_pulse);
     }
 
-    vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(20));  //20ms period
+    vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(50));  //50ms period
   }
   /* USER CODE END Vlotage_pid */
 }
@@ -579,6 +579,12 @@ void screen_show(void *argument)
       u8g2_DrawStr(&u8g2, 0, 10, buffer); 
 	    sprintf(buffer,"Iset :%05.2fA",PowerState_copy.set_current);
       u8g2_DrawStr(&u8g2, 0, 18, buffer);
+	    sprintf(buffer,"Vout :%05.2fV",PowerState_copy.now_voltage);
+      u8g2_DrawStr(&u8g2, 0, 30, buffer);
+	    sprintf(buffer,"Iout :%05.2fA",PowerState_copy.now_current);
+      u8g2_DrawStr(&u8g2, 0, 38, buffer);
+	    sprintf(buffer,"T:%03.1fC",PowerState_copy.now_temperature);
+      u8g2_DrawStr(&u8g2, 0, 50, buffer);
       
 	    u8g2_SendBuffer(&u8g2);
       PowerState_copy_last = PowerState_copy;
@@ -588,10 +594,16 @@ void screen_show(void *argument)
 
     u8g2_ClearBuffer(&u8g2);
     u8g2_SetFont(&u8g2, u8g2_font_6x10_tr);
-    sprintf(buffer,"Iset :%05.2fA",PowerState_copy.set_current);
-    u8g2_DrawStr(&u8g2, 0, 18, buffer);
     sprintf(buffer,"Vset :%05.2fV",PowerState_copy.set_voltage);
     u8g2_DrawStr(&u8g2, 0, 10, buffer); 
+    sprintf(buffer,"Iset :%05.2fA",PowerState_copy.set_current);
+    u8g2_DrawStr(&u8g2, 0, 18, buffer);
+    sprintf(buffer,"Vout :%05.2fV",PowerState_copy.now_voltage);
+    u8g2_DrawStr(&u8g2, 0, 30, buffer);
+    sprintf(buffer,"Iout :%05.2fA",PowerState_copy.now_current);
+    u8g2_DrawStr(&u8g2, 0, 38, buffer);
+    sprintf(buffer,"T:%03.1fC",PowerState_copy.now_temperature);
+    u8g2_DrawStr(&u8g2, 0, 50, buffer);
 
     u8g2_SendBuffer(&u8g2);
     PowerState_copy_last = PowerState_copy;
