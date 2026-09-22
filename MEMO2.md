@@ -414,3 +414,76 @@
 - 未用软件定时器，configUSE_TIMERS 可关，省约 850 字节堆。
 - u8x8_fonts.c 还有 1.53MB 未用，可继续精简。
 - I2C1 传感器总线也可考虑提到 400kHz（可选）。
+
+## 2026-09-22 · 第 30 次（本日第 2 次）：代码量与项目规模统计
+
+### 【我】自研代码（去注释后的代码行）
+- 应用层 Core/app 共 7 文件 148 行。
+- 传感器层 Core/sensors 共 8 文件 369 行。
+- CubeMX 文件内 USER CODE 共 458 行，其中 freertos.c 占 395。
+- 自研合计约 975 行，注释另计约两成。
+
+### 【我】生成与第三方
+- CubeMX 生成 Core/Src 与 Inc 共 1510 行，其中约 458 行是自研片段。
+- ST HAL 驱动包 788 文件 34.98 万行，多数未参与编译。
+- FreeRTOS 39 文件 1.40 万行，实际链接约十个文件。
+- u8g2 48 文件 3.44 万行，其中 u8x8_fonts.c 占大半且未使用。
+- 日志与 README 三个文件约 610 行。
+
+### 【我】项目规模估计
+- 固件最终 39.4KB ROM 与 14.4KB RAM，属中等规模应用。
+- 依赖体量大但自研聚焦：RTOS 架构、三层驱动、PID、显示、容错。
+- 硬件含原理图、PCB、焊接与调试，与固件合计约 1.5 到 2.5 人月。
+- 时间跨度按 git 与简历记 2026.8 起，约六周单人投入。
+
+### 【我】产出
+- README 增加代码规模小节，日志补本轮统计。
+
+## 待办（第 30 次）
+- 提交 I2C2 400kHz 与 TIM1 预分频这两处改动。
+- 循环开头置三个 state_res 为 SENSOR_SKIP，状态量初始化。
+- 开栈溢出与 malloc 失败钩子，任务句柄逐个判空。
+- 实测各任务栈水位与堆峰值。
+- 清掉 PowerState_copy_last 与 voltage_change 两个死变量。
+- 加 .gitattributes 与 renormalize，清掉行尾噪音。
+- 未用软件定时器，configUSE_TIMERS 可关，省约 850 字节堆。
+- u8x8_fonts.c 与未编译的 HAL 文件可再精简仓库体积。
+
+## 2026-09-22 · 第 31 次（本日第 3 次）：UART 上报与栈水位机制
+
+### 【你】本轮新增
+- 新增 uart_dev 与 uart_debug 两文件，即 UART 设备层与打印层。
+- 打印层用 vsnprintf 限长 128 字节，再交设备层发出。
+- 设备层带弱锁钩子与错误码，取不到锁按忙返回。
+- 四个任务周期打印各自栈水位，即水位查看机制。
+- 六个任务栈随之调大，最大 192 字，合计 3840 字节。
+- 新增第三个互斥量 dev_uart1，供串口发送加锁。
+- 屏幕刷新增加 Vout、Iout 与温度三行。
+
+### 【我】真错一处（必修）
+- uart_debug 传 DEV_UART1，设备层却只映射 DEV_UART2。
+- 于是 uart 指针未初始化就交给 HAL，一调用即可能异常。
+- 修法二选一：调用处改传 DEV_UART2，或设备层补上映射。
+- 名字也要统一：本板实际是 USART2，枚举却叫 DEV_UART1。
+
+### 【我】其它核对
+- 水位只打印不比较，确实没有硬控制，低水位不触发动作。
+- 堆峰值未纳入上报，未用 xPortGetMinimumEverFreeHeapSize。
+- buttom 与 defaultTask 两个任务尚未打印水位。
+- DEV_UART_DEBUG 未在两处构建里定义，开机那句被编译掉。
+- 最新构建 18:07，0 错 0 警，ROM 43.1KB，RAM 14.4KB。
+
+### 【我】产出
+- 日志记录本轮机制与那处真错，待办已更新。
+
+## 待办（第 31 次）
+- 修 DEV_UART1 与 DEV_UART2 不一致，否则一调用就异常。
+- 水位加阈值判断与动作，或至少低水位时打印告警。
+- 堆峰值一并上报，用 xPortGetMinimumEverFreeHeapSize。
+- buttom 与 defaultTask 补上水位打印。
+- 若要开机打印，在 EIDE 与 uvprojx 里定义 DEV_UART_DEBUG。
+- 串口锁超时宏沿用了电源锁的名字，建议另立一个。
+- 提交 I2C2 400kHz 与 TIM1 预分频那两处旧改动。
+- 循环开头置三个 state_res 为 SENSOR_SKIP，状态量初始化。
+- 开栈溢出与 malloc 失败钩子，任务句柄逐个判空。
+- 加 .gitattributes 与 renormalize，清掉行尾噪音。

@@ -33,6 +33,7 @@
 #include "stm32_u8g2.h"
 #include "stdio.h"
 #include "power_config.h"
+#include "uart_debug.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -67,42 +68,42 @@ extern u8g2_t u8g2;
 osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
   .name = "defaultTask",
-  .stack_size = 64 * 4,
+  .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for buttom */
 osThreadId_t buttomHandle;
 const osThreadAttr_t buttom_attributes = {
   .name = "buttom",
-  .stack_size = 64 * 4,
+  .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityRealtime1,
 };
 /* Definitions for PIDv */
 osThreadId_t PIDvHandle;
 const osThreadAttr_t PIDv_attributes = {
   .name = "PIDv",
-  .stack_size = 64 * 4,
+  .stack_size = 160 * 4,
   .priority = (osPriority_t) osPriorityRealtime7,
 };
 /* Definitions for sensorTask */
 osThreadId_t sensorTaskHandle;
 const osThreadAttr_t sensorTask_attributes = {
   .name = "sensorTask",
-  .stack_size = 64 * 4,
+  .stack_size = 160 * 4,
   .priority = (osPriority_t) osPriorityRealtime1,
 };
 /* Definitions for sensor_err_hand */
 osThreadId_t sensor_err_handHandle;
 const osThreadAttr_t sensor_err_hand_attributes = {
   .name = "sensor_err_hand",
-  .stack_size = 64 * 4,
+  .stack_size = 192 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for screen */
 osThreadId_t screenHandle;
 const osThreadAttr_t screen_attributes = {
   .name = "screen",
-  .stack_size = 128 * 4,
+  .stack_size = 192 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for PowerStateAcssess */
@@ -114,6 +115,11 @@ const osMutexAttr_t PowerStateAcssess_attributes = {
 osMutexId_t I2CAccessHandle;
 const osMutexAttr_t I2CAccess_attributes = {
   .name = "I2CAccess"
+};
+/* Definitions for dev_uart1 */
+osMutexId_t dev_uart1Handle;
+const osMutexAttr_t dev_uart1_attributes = {
+  .name = "dev_uart1"
 };
 
 /* Private function prototypes -----------------------------------------------*/
@@ -145,6 +151,9 @@ void MX_FREERTOS_Init(void) {
 
   /* creation of I2CAccess */
   I2CAccessHandle = osMutexNew(&I2CAccess_attributes);
+
+  /* creation of dev_uart1 */
+  dev_uart1Handle = osMutexNew(&dev_uart1_attributes);
 
   /* USER CODE BEGIN RTOS_MUTEX */
   /* add mutexes, ... */
@@ -301,6 +310,9 @@ void buttomTask(void *argument)
 void Vlotage_pid(void *argument)
 {
   /* USER CODE BEGIN Vlotage_pid */
+  #ifdef DEV_UART_DEBUG
+    int run_count = 0;
+  #endif
   float set_voltage = POWER_SETUP_VOLTAGE_SET;
   float new_voltage;  //V
   int16_t voltage_change = 0;
@@ -351,6 +363,11 @@ void Vlotage_pid(void *argument)
       __HAL_TIM_SET_COMPARE(&htim3,TIM_CHANNEL_1,now_pulse);
     }
 
+  #ifdef DEV_UART_DEBUG
+    UART_Printf("voltage_pid:%d\r\n",run_count);
+    UART_Printf("voltage_pid_stack:%d\r\n",uxTaskGetStackHighWaterMark(PIDvHandle));
+  #endif
+
     vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(50));  //50ms period
   }
   /* USER CODE END Vlotage_pid */
@@ -366,6 +383,9 @@ void Vlotage_pid(void *argument)
 void sensorRead(void *argument)
 {
   /* USER CODE BEGIN sensorRead */
+#ifdef DEV_UART_DEBUG
+  int run_count = 0;
+#endif
   float temperature;
   float voltage;
   float current;
@@ -386,6 +406,10 @@ void sensorRead(void *argument)
   /* Infinite loop */
   for(;;)
   {
+#ifdef DEV_UART_DEBUG
+    UART_Printf("sensorRead:%d\r\n",run_count);
+    UART_Printf("sensorRead_stack:%d\r\n",uxTaskGetStackHighWaterMark(sensorTaskHandle));
+#endif
     //wait first,so continue is the only need to start the next round
     vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(20));  //20ms delay
 
@@ -471,11 +495,19 @@ void sensorRead(void *argument)
 void sensor_err_handle(void *argument)
 {
   /* USER CODE BEGIN sensor_err_handle */
+#ifdef DEV_UART_DEBUG
+  int run_count = 0;
+#endif
   TickType_t lastWakeTime = xTaskGetTickCount();  //period base
   struct PowerStatus_t PowerState_copy;   //local copy to avoid holding the lock too long
   /* Infinite loop */
   for(;;)
   {
+  #ifdef DEV_UART_DEBUG
+    UART_Printf("sensor_err_handle:%d\r\n",run_count);
+    UART_Printf("sensor_err_handle_stack:%d\r\n",uxTaskGetStackHighWaterMark(sensor_err_handHandle));
+  #endif
+
     vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(200));  //200ms delay
 
     if(PowerState_lock() == 0){
@@ -556,6 +588,9 @@ void sensor_err_handle(void *argument)
 void screen_show(void *argument)
 {
   /* USER CODE BEGIN screen_show */
+#ifdef DEV_UART_DEBUG
+  int run_count = 0;
+#endif
   char buffer[20] = {0};
   struct PowerStatus_t PowerState_copy_last;
   struct PowerStatus_t PowerState_copy;
@@ -563,8 +598,13 @@ void screen_show(void *argument)
   int first_flag = 0;
   /* Infinite loop */
   for(;;)
-  {
-    vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(200));  //200ms delay
+  {  
+  #ifdef DEV_UART_DEBUG
+    UART_Printf("screen_show:%d\r\n",run_count);
+    UART_Printf("screen_show_stack:%d\r\n",uxTaskGetStackHighWaterMark(screenHandle));
+  #endif
+
+    vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(400));  //400ms delay
     if(PowerState_lock() == 0){
       PowerState_copy = PowerState;
       PowerState_unlock();
@@ -634,6 +674,38 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 /* I2C 总线互斥：覆盖 sensors_dev.c 里的弱函数实现
  * 返回 0 = 已持锁；非 0 = 没取到，设备层会放弃本次总线访问并返回 ERR_BUSY
  * 互斥量在 MX_FREERTOS_Init 里创建，创建前（内核尚未启动）句柄为空，直接放行 */
+int I2C_dev_lock(sensor_dev_i2c_t i2c)
+{
+  switch (i2c)
+  {
+  case SENSOR_DEV_I2C1:
+    if(I2CAccessHandle == NULL) return 0;
+    return (osMutexAcquire(I2CAccessHandle, I2C_LOCK_TIMEOUT_TICKS) == osOK) ? 0 : -1;
+  case SENSOR_DEV_I2C2:
+    break;
+  
+  default:
+    return -1;
+  }
+  return -1;
+}
+
+void I2C_dev_unlock(sensor_dev_i2c_t i2c)
+{
+  switch (i2c)
+  {
+  case SENSOR_DEV_I2C1:
+  if(I2CAccessHandle != NULL)
+    osMutexRelease(I2CAccessHandle);
+    break;
+  case SENSOR_DEV_I2C2:
+    break;
+  
+  default:
+    break;
+  }
+}
+
 int I2C_sensor_dev_lock(void)
 {
   if(I2CAccessHandle == NULL)
@@ -669,6 +741,17 @@ int PowerState_unlock(void)
     return 0;
   }
   return (osMutexRelease(PowerStateAcssessHandle) == osOK) ? 0 : -1;
+}
+
+//uart_dev.h
+int UART_lock_simple(void){
+  if(dev_uart1Handle == NULL)
+    return 0;
+  return (osMutexAcquire(dev_uart1Handle,POWERSTATE_LOCK_TIMEOUT_TICKS)==osOK) ? 0 : -1;
+}
+void UART_unlock_simple(void){
+  if(dev_uart1Handle != NULL)
+	  osMutexRelease(dev_uart1Handle);
 }
 /* USER CODE END Application */
 

@@ -16,6 +16,9 @@ void I2C_sensor_dev_init(I2C_HandleTypeDef* hi2c1)
 }
 
 /* Weak by default (no locking); the application overrides them, see freertos.c */
+__weak int  I2C_dev_lock(sensor_dev_i2c_t i2c)      { return 0; }
+__weak void I2C_dev_unlock(sensor_dev_i2c_t i2c)    { }
+
 __weak int  I2C_sensor_dev_lock(void)   { return 0; }   //0 = locked, non-zero = not acquired
 __weak void I2C_sensor_dev_unlock(void) { }
 

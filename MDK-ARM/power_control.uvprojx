@@ -396,11 +396,6 @@
           <GroupName>Application/User/Core</GroupName>
           <Files>
             <File>
-              <FileName>powerMaster.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Core\app\powerMaster.c</FilePath>
-            </File>
-            <File>
               <FileName>main.c</FileName>
               <FileType>1</FileType>
               <FilePath>../Core/Src/main.c</FilePath>
@@ -1058,6 +1053,26 @@
               <FileName>stm32_u8g2.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\3rdParty\u8g2\stm32_u8g2\stm32_u8g2.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>APP</GroupName>
+          <Files>
+            <File>
+              <FileName>powerMaster.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\app\powerMaster.c</FilePath>
+            </File>
+            <File>
+              <FileName>uart_debug.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\app\uart_debug.c</FilePath>
+            </File>
+            <File>
+              <FileName>uart_dev.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\app\uart_dev.c</FilePath>
             </File>
           </Files>
         </Group>

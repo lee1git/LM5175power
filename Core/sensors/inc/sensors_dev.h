@@ -37,6 +37,13 @@ typedef enum{
     SENSOR_DEV_ERR_I2C_NOT_IMPLEMENTED  //i2c not implemented for this platform
 } sensor_dev_status_t;
 
+//lock
+int  I2C_dev_lock(sensor_dev_i2c_t i2c);
+void I2C_dev_unlock(sensor_dev_i2c_t i2c);
+
+int  I2C_sensor_dev_lock(void);
+void I2C_sensor_dev_unlock(void);
+
 
 // function zone
 /**
@@ -55,8 +62,6 @@ void I2C_sensor_dev_init(I2C_HandleTypeDef* hi2c1);
  *         non-zero when it could not be taken, in which case the register
  *         access is abandoned and SENSOR_DEV_ERR_BUSY is returned instead.
  */
-int  I2C_sensor_dev_lock(void);
-void I2C_sensor_dev_unlock(void);
 
 /**
  * @brief Write data to a sensor device register over I2C.

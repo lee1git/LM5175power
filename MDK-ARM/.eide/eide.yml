@@ -35,6 +35,8 @@ virtualFolder:
         - name: app
           files:
             - path: ../Core/app/powerMaster.c
+            - path: ../Core/app/uart_debug.c
+            - path: ../Core/app/uart_dev.c
           folders: []
     - name: Drivers
       files: []

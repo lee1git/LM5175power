@@ -26,21 +26,16 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "stdio.h"
+#include "math.h"
 #include "sensors.h"
 #include "powerMaster.h"
-#include "math.h"
 #include "stm32_u8g2.h"
 #include "power_config.h"
+#include "uart_debug.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-#define PWM_VLOTAGE_TOP       (324U)     //when pluse is 324,zhe Vout is 15V
-#define PWM_VLOTAGE_buttom    (758U)     //when pluse is 758,zhe Vout is 1V
-#define PWM_STEP              (uint16_t)((PWM_VLOTAGE_buttom-PWM_VLOTAGE_TOP)/14) //1V step
-
-#define MY_DEBUG    0x00      //0x00 nodebug ;0x01 debug on
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -119,6 +114,10 @@ int main(void)
   HAL_TIM_PWM_Start(&htim3,TIM_CHANNEL_1);
 
   PowerStateInit(POWER_SETUP_OUT_STATE,POWER_SETUP_VOLTAGE_SET,POWER_SETUP_CURRENT_LIMIT);  
+
+  #ifdef DEV_UART_DEBUG
+  UART_Printf("main start\r\n");
+  #endif
   /* USER CODE END 2 */
 
   /* Init scheduler */
