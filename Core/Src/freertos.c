@@ -60,6 +60,8 @@
 /* PID 状态在 main.c 的 USER CODE 4 里定义 */
 extern float integral;
 extern float last_error;
+
+extern u8g2_t u8g2;
 /* USER CODE END Variables */
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
@@ -482,6 +484,11 @@ void sensor_err_handle(void *argument)
         PowerState_copy.I2C1_state = DEVICE_OFFLINE;   //if both sensors are offline, the bus is likely offline too
         PowerState.I2C1_state = DEVICE_OFFLINE;   //update the shared struct immediately
       }
+
+      if(PowerState_copy.SH1106_state == DEVICE_OFFLINE){
+        PowerState_copy.I2C2_state = DEVICE_OFFLINE;
+        PowerState.I2C2_state = DEVICE_OFFLINE;
+      }
       PowerState_unlock();
     }else{
       continue;   //lock not acquired: skip this round
@@ -505,6 +512,17 @@ void sensor_err_handle(void *argument)
       }
     }
 
+    if(PowerState_copy.I2C2_state == DEVICE_OFFLINE){
+      if(I2C2_bus_restart() == 0){
+        PowerState_copy.I2C2_state = DEVICE_ONLINE;
+      }
+    }
+
+    if(PowerState_copy.SH1106_state == DEVICE_OFFLINE && PowerState_copy.I2C2_state == DEVICE_ONLINE){
+      u8g2Init(&u8g2);
+      PowerState_copy.SH1106_state = DEVICE_ONLINE;
+    }
+
 
     if(PowerState_lock() == 0){
       if(PowerState_copy.I2C1_state == DEVICE_ONLINE){
@@ -515,6 +533,12 @@ void sensor_err_handle(void *argument)
       }
       if(PowerState_copy.TMP112_state == DEVICE_ONLINE){
         PowerState.TMP112_state = PowerState_copy.TMP112_state;
+      }
+      if(PowerState_copy.I2C2_state == DEVICE_ONLINE){
+        PowerState.I2C2_state = PowerState_copy.I2C2_state;
+      }
+      if(PowerState_copy.SH1106_state == DEVICE_ONLINE){
+        PowerState.SH1106_state = PowerState_copy.SH1106_state;
       }
       PowerState_unlock();
     }//lock not acquired: skip this round
@@ -528,7 +552,6 @@ void sensor_err_handle(void *argument)
 * @param argument: Not used
 * @retval None
 */
-extern u8g2_t u8g2;
 /* USER CODE END Header_screen_show */
 void screen_show(void *argument)
 {

@@ -1,6 +1,7 @@
 #include "stm32_u8g2.h"
 #include "tim.h"
 #include "i2c.h"
+#include "powerMaster.h"
 
 
 uint8_t u8x8_byte_hw_i2c(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr)
@@ -8,6 +9,8 @@ uint8_t u8x8_byte_hw_i2c(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_p
     /* u8g2/u8x8 will never send more than 32 bytes between START_TRANSFER and END_TRANSFER */
     static uint8_t buffer[128];
     static uint8_t buf_idx;
+    static int err_count = 0;
+    static char err_flag = 0;
     uint8_t *data;
  
     switch (msg)
@@ -40,8 +43,29 @@ uint8_t u8x8_byte_hw_i2c(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_p
  
     case U8X8_MSG_BYTE_END_TRANSFER:
     {
-        if (HAL_I2C_Master_Transmit(&hi2c2, OLED_ADDRESS, buffer, buf_idx, 1000) != HAL_OK)
+        if(err_flag){
+            if(PowerState_lock() == 0){
+                if(PowerState.SH1106_state == DEVICE_ONLINE){
+                    err_flag = 0;
+                }
+                PowerState_unlock();
+            }
             return 0;
+        }
+
+        if (HAL_I2C_Master_Transmit(&hi2c2, OLED_ADDRESS, buffer, buf_idx, 1000) != HAL_OK)
+        {
+            if((++err_count) > 3)     //fixed number first
+            {
+                if(PowerState_lock() == 0){
+                    PowerState.SH1106_state = DEVICE_OFFLINE;       //device off
+                    err_count = 0;
+                    err_flag = 1;
+                    PowerState_unlock();
+                }
+            }
+            return 0;
+        }
     }
     break;
  
@@ -73,7 +97,7 @@ uint8_t u8x8_gpio_and_delay(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *ar
     case U8X8_MSG_DELAY_MILLI: // delay arg_int * 1 milli second
         HAL_Delay(1);
         break;
-    case U8X8_MSG_DELAY_I2C: // arg_int is the I2C speed in 100KHz, e.g. 4 = 400 KHz
+    case U8X8_MSG_DELAY_I2C: // arg_int is the I2C speed in 100KHz, e.g. 4 = 400 KHz        //now is 4
         Tims_delay_us(5);
         break;                    // arg_int=1: delay by 5us, arg_int = 4: delay by 1.25us
     case U8X8_MSG_GPIO_I2C_CLOCK: // arg_int=0: Output low at I2C clock pin

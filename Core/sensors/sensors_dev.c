@@ -4,10 +4,11 @@
 #include "stm32f1xx_hal.h"
 #include "i2c.h"                 //MX_I2C1_Init(), for bus recovery
 
-#define I2C_INUSE(i2c)  (i2c == SENSOR_DEV_I2C1 && s_hi2c1 != NULL)
+#define I2C_INUSE(i2c)  ((i2c == SENSOR_DEV_I2C1 || i2c == SENSOR_DEV_I2C2) && s_hi2c1 != NULL)
 
 /* Bound by the application layer, see I2C_sensor_dev_init() */
 static I2C_HandleTypeDef* s_hi2c1 = NULL;
+static I2C_HandleTypeDef* s_hi2c2 = &hi2c2;
 
 void I2C_sensor_dev_init(I2C_HandleTypeDef* hi2c1)
 {
@@ -118,7 +119,7 @@ static int I2C_release_bus(GPIO_TypeDef* GPIOx, uint16_t SCL_Pin, uint16_t SDA_P
 
 int I2C_Restart(sensor_dev_i2c_t i2c)
 {
-    assert(I2C_INUSE(i2c));  // Ensure the I2C device is in use
+    //assert(I2C_INUSE(i2c));  // Ensure the I2C device is in use
     switch (i2c)
     {
     case SENSOR_DEV_I2C1:
@@ -129,7 +130,12 @@ int I2C_Restart(sensor_dev_i2c_t i2c)
         MX_I2C1_Init();
         I2C_sensor_dev_unlock();
         break;
-    
+    case SENSOR_DEV_I2C2:
+        if(s_hi2c2 == NULL) return -1;
+        HAL_I2C_DeInit(s_hi2c2);
+        I2C_release_bus(GPIOB, GPIO_PIN_10, GPIO_PIN_11); // Release the I2C bus
+        MX_I2C2_Init();
+        break;
     default:
         break;
     }

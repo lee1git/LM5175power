@@ -43,7 +43,7 @@ void MX_TIM1_Init(void)
 
   /* USER CODE END TIM1_Init 1 */
   htim1.Instance = TIM1;
-  htim1.Init.Prescaler = 0;
+  htim1.Init.Prescaler = 17;
   htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim1.Init.Period = 65535;
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -288,7 +288,7 @@ void HAL_TIM_PWM_MspDeInit(TIM_HandleTypeDef* tim_pwmHandle)
 }
 
 /* USER CODE BEGIN 1 */
-void Tims_delay_us(uint16_t nus)
+void Tims_delay_us(uint16_t nus)  //0.25us
 {
 	__HAL_TIM_SET_COUNTER(DLY_TIM_Handle, 0);
 	__HAL_TIM_ENABLE(DLY_TIM_Handle);

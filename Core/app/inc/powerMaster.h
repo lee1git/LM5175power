@@ -27,6 +27,9 @@ struct PowerStatus_t
     char INA226_state;
     char TMP112_state;
 
+    char I2C2_state;
+    char SH1106_state;
+
     int en_statu;
     int pgood_statu;
 };

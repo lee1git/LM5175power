@@ -35,5 +35,6 @@ sensor_state_t INA226_readVoltage(float LSB, float* voltageOut);
 int sensors_outerdev_init(void);
 int Sensors_bus_init(void);
 int Sensors_bus_restart(void);
+int I2C2_bus_restart(void);
 
 #endif // !_SENSORS_H_

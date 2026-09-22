@@ -40,6 +40,9 @@ int PowerStateInit(int _en_sta,float _set_vol,float _set_cur)
     PowerState.I2C1_state = DEVICE_ONLINE;        //sensor bus is online by default
     PowerState.INA226_state = DEVICE_ONLINE;
     PowerState.TMP112_state = DEVICE_ONLINE;
+
+    PowerState.I2C2_state = DEVICE_ONLINE;
+    PowerState.SH1106_state = DEVICE_ONLINE;
     return 0;
 }
 

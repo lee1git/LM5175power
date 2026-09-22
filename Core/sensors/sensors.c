@@ -117,6 +117,11 @@ int Sensors_bus_restart(void)
   return I2C_Restart(SENSOR_DEV_I2C1);
 }
 
+int I2C2_bus_restart(void)
+{
+  return I2C_Restart(SENSOR_DEV_I2C2);
+}
+
 /* Bind the I2C handle to the bus layer.
  * The application calls this once, after MX_I2C1_Init() and before any sensor access. */
 int Sensors_bus_init(void)
