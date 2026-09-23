@@ -670,7 +670,9 @@ void IWDOG_feed(void *argument)
   for(;;)
   {
     //  set feed time 2s
-    HAL_IWDG_Refresh(&hiwdg);
+    #ifndef DEV_UART_DEBUG
+      HAL_IWDG_Refresh(&hiwdg);
+    #endif
     vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(IWDOG_FEED_TIME_MS));
   }
   /* USER CODE END IWDOG_feed */
