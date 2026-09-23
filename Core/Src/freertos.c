@@ -324,8 +324,8 @@ void Vlotage_pid(void *argument)
 
   float set_voltage = POWER_SETUP_VOLTAGE_SET;
   float new_voltage;  //V
-  uint32_t now_pulse = VOLTAGE_TO_PWM_PULSE(POWER_SETUP_VOLTAGE_SET);       //initial PWM pulse width, just a magic number
-  uint32_t pwm_pulse;
+  int32_t now_pulse = VOLTAGE_TO_PWM_PULSE(POWER_SETUP_VOLTAGE_SET);       //initial PWM pulse width, just a magic number
+  int32_t pwm_pulse;
   TickType_t lastWakeTime = xTaskGetTickCount();   //period base, taken once outside the loop
   uint8_t check_over = 1;
   /* Infinite loop */
@@ -351,7 +351,7 @@ void Vlotage_pid(void *argument)
     }
 
     if(check_over == 1){          //all checks passed: this round may drive the PWM
-      pwm_pulse = f_PI_calcu_keep(&pi_data,set_voltage,new_voltage);
+      pwm_pulse = (int32_t)f_PI_calcu_keep(&pi_data,set_voltage,new_voltage);
       if(now_pulse+pwm_pulse > PWM_VOLTAGE_PULSE_MAX)now_pulse = PWM_VOLTAGE_PULSE_MAX;
       else if(now_pulse+pwm_pulse < PWM_VOLTAGE_PULSE_MIN)now_pulse = PWM_VOLTAGE_PULSE_MIN;
       else now_pulse += pwm_pulse; 

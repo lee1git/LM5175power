@@ -94,3 +94,60 @@
 - README 尺寸、任务表与控制口径按代码重写。
 - 12 小时考核跑完回填最终结果。
 - 推送前删掉 8.7MB 原图，只留 web 版。
+
+## 2026-09-23 · 第 35 次（本日第 2 次）：P0 复核与 EIDE 构建修复
+
+### 【你】本轮改动（提交 f964928）
+- INA226 初始化挪到 sensorRead 循环之前调用。
+- IWDG 重载 625 改 1230，喂狗由 800ms 改 300ms。
+- u8g2 与 INA226_init_data 两个定义搬到 freertos.c。
+- 循环头初始化三个器件状态量与三个 state_res。
+- PWM 初值改由新宏换算，限幅改用标定常量。
+- main.c 的 u8g2 初始化移进 screen_show 任务。
+- eide.yml 的 srcDirs 加了整目录 Drivers 与 Middlewares。
+
+### 【我】P0 复核结论
+- 已修 7 项：INA226 初始化、看门狗时长、局部量初始化。
+- 已修：离线分支不再写回旧值也不刷时间戳。
+- 已修：限幅改用 324 与 758 派生常量，且先比较后累加。
+- 已修：uart_dev 指针给初值并加 assert 断言。
+- 未修 4 项：喂狗无心跳、I2C2 无锁、调试期未冻结。
+- 部分修：开机窗口因屏初始化后移而缓解，超时未改。
+
+### 【我】新发现的真错
+- 新宏 VOLTAGE_TO_PWM_PULSE 算错：少偏移且符号颠倒。
+- 324U 减 758U 是回绕，宏折算出 1840699904。
+- 实测 armclang 折成 movw 55808 与 movt 28086 两条。
+- 写进 16 位 CCR1 后为 55808，远大于 ARR 999，满占空。
+- 正确值应为 603；两边同错，故寄存器与 now_pulse 自洽。
+- pwm_pulse 改成了 uint32_t，而 PI 输出是负的。
+- 负浮点转无符号属未定义行为，编译器把它折成 undef。
+- 实测运行期改调 __aeabi_f2uiz，按 ARM 语义负数为零。
+- 若负向修正归零，输出只能降不能升，卡在最低档。
+- 建议改有符号并补回偏移，324 与 758 两端仍成立。
+
+### 【我】EIDE 构建失败排查与修复
+- 根因一：srcDirs 扫整棵 Drivers，源文件由 90 涨到 684。
+- 头号报错是 CMSIS 的 DSP 测试套件与 Core_A 模板编不过。
+- 中还扫进 heap_1 到 heap_5 与 cmsis_os1，链接必重定义。
+- 处置：撤销整目录扫描，恢复显式清单并补 hal_iwdg。
+- 根因二：EIDE 的 AC6 优化级别是 level-0，Keil 是 O2。
+- 处置：改成 level-2，与 Keil 对齐。
+- 根因三：EIDE 传 fno-function-sections，函数不分段。
+- 后果：链接器丢不掉未用函数，镜像涨到 127.5KB。
+- 实测同源同 O2：Keil 41.3KB，EIDE 未分段时 127.5KB。
+- 处置：开 one-elf-section-per-function 改用 ffunction-sections。
+- 结果：EIDE 构建通过，ROM 43.1KB/64KB，RAM 14.2KB/20KB。
+- 自跑 unify_builder 需先设 DOTNET_ROLL_FORWARD 才启动。
+- 参数文件为我手改后运行，eide.yml 已同步同样三项。
+
+## 待办（第 35 次）
+- 修 VOLTAGE_TO_PWM_PULSE 的偏移与符号，回读寄存器核对。
+- pwm_pulse 与 now_pulse 改有符号，杜绝负值转无符号。
+- 上板确认使能后电压能否升到设定值，否则即命中该错。
+- 喂狗改心跳校验，I2C2 加锁，调试期冻结 IWDG。
+- 两套构建的 char 符号性不同，需确认有无影响。
+- eide.yml 的 excludeList 前缀仍是死的，择机修或删。
+- EIDE 侧新产出的 axf/hex/map/s19 均不入库，无需处理。
+- 推送前删 8.7MB 原图，12 小时考核跑完回填结果。
+

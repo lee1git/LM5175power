@@ -35,6 +35,6 @@
 
 //calculate
 #define VOLTAGE_TO_PWM_PULSE(_vol)  \
-    ((uint32_t)((float)(PWM_VLOTAGE_TOP-PWM_VLOTAGE_buttom)/(POWER_MAX_VOLTAGE-POWER_MIN_VOLTAGE)*(float)_vol))    //_vol must between 1.0f - 15.0f
+    (PWM_VLOTAGE_buttom - (uint32_t)((float)(PWM_VLOTAGE_buttom-PWM_VLOTAGE_TOP)/(POWER_MAX_VOLTAGE-POWER_MIN_VOLTAGE)*((float)_vol-1.0f)))    //_vol must between 1.0f - 15.0f
 
 #endif // !_POWER_CONFIG_H
