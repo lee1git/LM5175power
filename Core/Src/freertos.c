@@ -45,12 +45,6 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-/* I2C 总线锁最长等待：约两倍最坏持锁时间（一次事务 5ms HAL 超时） */
-#define I2C_LOCK_TIMEOUT_TICKS    (pdMS_TO_TICKS(10))
-/* PowerState 锁最长等待：临界区只有几次字段读写，5ms 足够宽松 */
-#define POWERSTATE_LOCK_TIMEOUT_TICKS  (pdMS_TO_TICKS(5))
-/* 传感器错误计数上限 */
-#define SENSOR_ERROR_THRESHOLD  5
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -60,11 +54,10 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN Variables */
-/* PID 状态在 main.c 的 USER CODE 4 里定义 */
-extern float integral;
-extern float last_error;
-
-extern u8g2_t u8g2;
+  /* u8g2 handle */
+  u8g2_t u8g2;
+  //INA226 init data
+  struct sensor_INA226_init INA226_init_data = {INA226_calibration_10A_6mOhm};
 /* USER CODE END Variables */
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
@@ -331,8 +324,8 @@ void Vlotage_pid(void *argument)
 
   float set_voltage = POWER_SETUP_VOLTAGE_SET;
   float new_voltage;  //V
-  uint16_t now_pulse = 500;       //initial PWM pulse width, just a magic number
-  int16_t pwm_pulse;
+  uint32_t now_pulse = VOLTAGE_TO_PWM_PULSE(POWER_SETUP_VOLTAGE_SET);       //initial PWM pulse width, just a magic number
+  uint32_t pwm_pulse;
   TickType_t lastWakeTime = xTaskGetTickCount();   //period base, taken once outside the loop
   uint8_t check_over = 1;
   /* Infinite loop */
@@ -341,6 +334,8 @@ void Vlotage_pid(void *argument)
     check_over = 1;     //assume all checks pass, cleared on any fault
     
     if(PowerState_lock() == 0){
+      new_voltage = PowerState.now_voltage;
+      set_voltage = PowerState.set_voltage;
 
       if(PowerState.en_statu == PWR_EN_OFF ||
          PowerState.INA226_state == DEVICE_OFFLINE ||
@@ -349,8 +344,6 @@ void Vlotage_pid(void *argument)
         PI_clear_integral(&pi_data);
         check_over = 0;
       }
-      new_voltage = PowerState.now_voltage;
-      set_voltage = PowerState.set_voltage;
       PowerState_unlock();
     }else{
       //lock not acquired: leave PowerState untouched this round
@@ -359,9 +352,10 @@ void Vlotage_pid(void *argument)
 
     if(check_over == 1){          //all checks passed: this round may drive the PWM
       pwm_pulse = f_PI_calcu_keep(&pi_data,set_voltage,new_voltage);
-      now_pulse += pwm_pulse;   //update the last known pulse width
-      if(now_pulse > 800)now_pulse = 800;
-      if(now_pulse < 300)now_pulse = 300;
+      if(now_pulse+pwm_pulse > PWM_VOLTAGE_PULSE_MAX)now_pulse = PWM_VOLTAGE_PULSE_MAX;
+      else if(now_pulse+pwm_pulse < PWM_VOLTAGE_PULSE_MIN)now_pulse = PWM_VOLTAGE_PULSE_MIN;
+      else now_pulse += pwm_pulse; 
+
       __HAL_TIM_SET_COMPARE(&htim3,TIM_CHANNEL_1,now_pulse);
     }
 
@@ -406,6 +400,7 @@ void sensorRead(void *argument)
   TickType_t lastWakeTime = xTaskGetTickCount();  //period base
   TickType_t write_time;                  
   /* Infinite loop */
+  INA226_init(INA226_init_data);
   for(;;)
   {
 #ifdef DEV_UART_DEBUG
@@ -415,6 +410,12 @@ void sensorRead(void *argument)
     //wait first,so continue is the only need to start the next round
     vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(20));  //20ms delay
 
+    I2C_state = DEVICE_OFFLINE;
+    INA226_state = DEVICE_OFFLINE;
+    TMP112A_state = DEVICE_OFFLINE;
+    state_res_temperature = SENSOR_ERR_DEV;
+    state_res_voltage = SENSOR_ERR_DEV;
+    state_res_current = SENSOR_ERR_DEV;
     //iic sensor read
     if(PowerState_lock() == 0)
     {
@@ -423,7 +424,7 @@ void sensorRead(void *argument)
       TMP112A_state = PowerState.TMP112_state;
       PowerState_unlock();
     }
-    //if lcok fail use the last known state, which is not ideal but better than nothing
+    
     if(I2C_state == DEVICE_ONLINE)  //work only when the bus is online
     {
       if(TMP112A_state == DEVICE_ONLINE){
@@ -599,6 +600,7 @@ void screen_show(void *argument)
   TickType_t lastWakeTime = xTaskGetTickCount();  //period base
   int first_flag = 0;
   /* Infinite loop */
+  u8g2Init(&u8g2);
   for(;;)
   {  
   #ifdef DEV_UART_DEBUG
@@ -667,8 +669,9 @@ void IWDOG_feed(void *argument)
   /* Infinite loop */
   for(;;)
   {
+    //  set feed time 2s
     HAL_IWDG_Refresh(&hiwdg);
-    vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(800));  //800ms delay
+    vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(IWDOG_FEED_TIME_MS));
   }
   /* USER CODE END IWDOG_feed */
 }

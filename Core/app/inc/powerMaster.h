@@ -10,8 +10,6 @@
 #define DEVICE_ONLINE     (0x01)
 #define DEVICE_OFFLINE    (0x00)
 
-#define PWM_VLOTAGE_TOP       (324U)     //when pluse is 324,zhe Vout is 15V
-#define PWM_VLOTAGE_buttom    (758U)     //when pluse is 758,zhe Vout is 1V
 
 struct PowerStatus_t
 {

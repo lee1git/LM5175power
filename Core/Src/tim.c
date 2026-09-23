@@ -21,7 +21,7 @@
 #include "tim.h"
 
 /* USER CODE BEGIN 0 */
-
+#include "power_config.h"
 /* USER CODE END 0 */
 
 TIM_HandleTypeDef htim1;
@@ -118,7 +118,8 @@ void MX_TIM3_Init(void)
 {
 
   /* USER CODE BEGIN TIM3_Init 0 */
-
+  // PWM generator for voltage tune //
+  //    sConfigOC.Pulse = VOLTAGE_TO_PWM_PULSE(POWER_SETUP_VOLTAGE_SET);  //is needed
   /* USER CODE END TIM3_Init 0 */
 
   TIM_MasterConfigTypeDef sMasterConfig = {0};
@@ -144,7 +145,7 @@ void MX_TIM3_Init(void)
     Error_Handler();
   }
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 324;
+  sConfigOC.Pulse = VOLTAGE_TO_PWM_PULSE(POWER_SETUP_VOLTAGE_SET);
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
   if (HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)

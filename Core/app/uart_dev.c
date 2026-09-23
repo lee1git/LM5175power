@@ -1,18 +1,18 @@
 #include "uart_dev.h"   
 
 #include "usart.h"
+#include <assert.h>              //assert() is a macro: without this it links as an undefined symbol
 //lock
 __weak int  UART_lock_simple(void)   { return 0;}
 __weak void UART_unlock_simple(void) { }
 
 dev_uart_status_t dev_UART_transmit(dev_uart_t dev_uart, const uint8_t *pData, uint16_t Size, uint32_t Timeout)
 {
+    assert(dev_uart == DEV_UART2);
+
     HAL_StatusTypeDef res;
-    UART_HandleTypeDef *uart;
-    if(dev_uart == DEV_UART2)
-    {
-        uart = &huart2;
-    }
+    UART_HandleTypeDef *uart = &huart2;
+
     if(UART_lock_simple() == 0)
     {
         res = HAL_UART_Transmit(uart,pData,Size,Timeout);

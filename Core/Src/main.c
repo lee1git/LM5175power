@@ -63,8 +63,8 @@ static void MX_NVIC_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-struct sensor_INA226_init INA226_init_data = {INA226_calibration_10A_6mOhm};
-u8g2_t u8g2;
+// struct sensor_INA226_init INA226_init_data = {INA226_calibration_10A_6mOhm};
+// u8g2_t u8g2;
 /* USER CODE END 0 */
 
 /**
@@ -110,7 +110,8 @@ int main(void)
 
   Sensors_bus_init();      //bind &hi2c1 to the sensor bus layer
   // u8g2 init
-  u8g2Init(&u8g2);
+  // u8g2Init(&u8g2);
+  // INA226_init(INA226_init_data);
 
   HAL_TIM_PWM_Start(&htim2,TIM_CHANNEL_1);
   HAL_TIM_PWM_Start(&htim3,TIM_CHANNEL_1);
