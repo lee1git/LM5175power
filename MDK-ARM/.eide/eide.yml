@@ -5,6 +5,7 @@ deviceName: STM32F103C8
 packDir: .pack/Keil/STM32F1xx_DFP.2.2.0
 srcDirs:
   - ../3rdParty
+  - ../Core/algorithm
 virtualFolder:
   name: <virtual_root>
   files: []
@@ -31,6 +32,8 @@ virtualFolder:
                 - path: ../Core/Src/stm32f1xx_it.c
                 - path: ../Core/Src/stm32f1xx_hal_msp.c
                 - path: ../Core/Src/stm32f1xx_hal_timebase_tim.c
+                - path: ../Core/Src/iwdg.c
+                - path: ../Core/Src/system_stm32f1xx.c
               folders: []
         - name: app
           files:
@@ -120,6 +123,7 @@ targets:
         - RTE/_power_control
         - ../3rdParty/u8g2/stm32_u8g2
         - ../3rdParty/u8g2
+        - ../Core/algorithm
       libList: []
     excludeList:
       - <virtual_root>/Drivers/u8g2/mui_u8g2.c

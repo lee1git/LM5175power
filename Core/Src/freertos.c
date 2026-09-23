@@ -34,6 +34,8 @@
 #include "stdio.h"
 #include "power_config.h"
 #include "uart_debug.h"
+#include "iwdg.h"
+#include "pid.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -106,6 +108,13 @@ const osThreadAttr_t screen_attributes = {
   .stack_size = 192 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
+/* Definitions for iwdog_feed */
+osThreadId_t iwdog_feedHandle;
+const osThreadAttr_t iwdog_feed_attributes = {
+  .name = "iwdog_feed",
+  .stack_size = 64 * 4,
+  .priority = (osPriority_t) osPriorityRealtime7,
+};
 /* Definitions for PowerStateAcssess */
 osMutexId_t PowerStateAcssessHandle;
 const osMutexAttr_t PowerStateAcssess_attributes = {
@@ -133,6 +142,7 @@ void Vlotage_pid(void *argument);
 void sensorRead(void *argument);
 void sensor_err_handle(void *argument);
 void screen_show(void *argument);
+void IWDOG_feed(void *argument);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
@@ -189,6 +199,9 @@ void MX_FREERTOS_Init(void) {
 
   /* creation of screen */
   screenHandle = osThreadNew(screen_show, NULL, &screen_attributes);
+
+  /* creation of iwdog_feed */
+  iwdog_feedHandle = osThreadNew(IWDOG_feed, NULL, &iwdog_feed_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -313,9 +326,11 @@ void Vlotage_pid(void *argument)
   #ifdef DEV_UART_DEBUG
     int run_count = 0;
   #endif
+  PI_data_typedef pi_data;
+  PI_init(&pi_data, -10.0f, -0.024f, 500.0f, 0.05f);
+
   float set_voltage = POWER_SETUP_VOLTAGE_SET;
   float new_voltage;  //V
-  int16_t voltage_change = 0;
   uint16_t now_pulse = 500;       //initial PWM pulse width, just a magic number
   int16_t pwm_pulse;
   TickType_t lastWakeTime = xTaskGetTickCount();   //period base, taken once outside the loop
@@ -323,32 +338,19 @@ void Vlotage_pid(void *argument)
   /* Infinite loop */
   for(;;)
   {
-    check_over = 1;                                //assume all checks pass, cleared on any fault
-    voltage_change = 0;                             //reset the voltage change flag
+    check_over = 1;     //assume all checks pass, cleared on any fault
     
     if(PowerState_lock() == 0){
 
-      if(PowerState.en_statu == PWR_EN_OFF){
-        integral = 0;
-        last_error = 0;
+      if(PowerState.en_statu == PWR_EN_OFF ||
+         PowerState.INA226_state == DEVICE_OFFLINE ||
+         new_voltage < 0.0f
+      ){
+        PI_clear_integral(&pi_data);
         check_over = 0;
       }
-
       new_voltage = PowerState.now_voltage;
-      if(new_voltage < 0.0f)
-      {
-        integral = 0;
-        last_error = 0;
-        check_over = 0;
-      }
-
       set_voltage = PowerState.set_voltage;
-
-      if(PowerState.INA226_state == DEVICE_OFFLINE){
-        integral = 0;
-        last_error = 0;
-        check_over = 0;
-      }
       PowerState_unlock();
     }else{
       //lock not acquired: leave PowerState untouched this round
@@ -356,7 +358,7 @@ void Vlotage_pid(void *argument)
     }
 
     if(check_over == 1){          //all checks passed: this round may drive the PWM
-      pwm_pulse = pid_calculate(set_voltage,new_voltage);
+      pwm_pulse = f_PI_calcu_keep(&pi_data,set_voltage,new_voltage);
       now_pulse += pwm_pulse;   //update the last known pulse width
       if(now_pulse > 800)now_pulse = 800;
       if(now_pulse < 300)now_pulse = 300;
@@ -649,6 +651,26 @@ void screen_show(void *argument)
     PowerState_copy_last = PowerState_copy;
   }
   /* USER CODE END screen_show */
+}
+
+/* USER CODE BEGIN Header_IWDOG_feed */
+/**
+* @brief Function implementing the iwdog_feed thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_IWDOG_feed */
+void IWDOG_feed(void *argument)
+{
+  /* USER CODE BEGIN IWDOG_feed */
+  TickType_t lastWakeTime = xTaskGetTickCount();  //period base
+  /* Infinite loop */
+  for(;;)
+  {
+    HAL_IWDG_Refresh(&hiwdg);
+    vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(800));  //800ms delay
+  }
+  /* USER CODE END IWDOG_feed */
 }
 
 /* Private application code --------------------------------------------------*/

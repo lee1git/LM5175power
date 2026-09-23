@@ -20,6 +20,7 @@
 #include "main.h"
 #include "cmsis_os.h"
 #include "i2c.h"
+#include "iwdg.h"
 #include "tim.h"
 #include "usart.h"
 #include "gpio.h"
@@ -101,6 +102,7 @@ int main(void)
   MX_USART2_UART_Init();
   MX_I2C2_Init();
   MX_TIM1_Init();
+  MX_IWDG_Init();
 
   /* Initialize interrupts */
   MX_NVIC_Init();
@@ -115,9 +117,8 @@ int main(void)
 
   PowerStateInit(POWER_SETUP_OUT_STATE,POWER_SETUP_VOLTAGE_SET,POWER_SETUP_CURRENT_LIMIT);  
 
-  #ifdef DEV_UART_DEBUG
+  //start
   UART_Printf("main start\r\n");
-  #endif
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -152,10 +153,11 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSI|RCC_OSCILLATORTYPE_HSE;
   RCC_OscInitStruct.HSEState = RCC_HSE_ON;
   RCC_OscInitStruct.HSEPredivValue = RCC_HSE_PREDIV_DIV1;
   RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+  RCC_OscInitStruct.LSIState = RCC_LSI_ON;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
   RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL9;
