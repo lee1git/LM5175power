@@ -127,11 +127,9 @@ Core/Src/          CubeMX 生成的 HAL 初始化与任务骨架（freertos.c �
 
 ## 已知限制 / 待办
 
-- `sensorRead()` 在总线离线分支未清结果变量，可能把上一轮的值当成功写回并刷新时间戳
-- `state_res_*` 与三个器件状态局部量未初始化，首次取锁失败会读到栈上残留值
 - 未启用栈溢出与 malloc 失败检测（`configCHECK_FOR_STACK_OVERFLOW` 等），任务句柄未判空
 - 各任务栈水位与堆峰值尚未实测
-- 死变量：`PowerState_copy_last`、`voltage_change`
+- 死变量：`PowerState_copy_last`
 - `configUSE_TIMERS` 为 1 但工程未使用软件定时器，关掉可回收约 850 B 堆
 - `3rdParty/u8g2/u8x8_fonts.c` 仍有 1.5 MB 未被使用，可继续精简
 - 仓库尚未添加 `.gitattributes`，工作区存在纯行尾差异噪音
