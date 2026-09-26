@@ -1,0 +1,16 @@
+# 行尾统一：索引内一律 LF，检出时按平台（Windows 上检成 CRLF）。
+# 加这一条即可消除"索引里 LF、工作区里 CRLF"造成的纯行尾差异噪音。
+* text=auto
+
+# 图片与归档是二进制，禁止任何转换
+*.jpg binary
+*.jpeg binary
+*.png binary
+*.gif binary
+*.webp binary
+*.bmp binary
+*.pdf binary
+*.zip binary
+*.rar binary
+*.7z binary
+*.exe binary
