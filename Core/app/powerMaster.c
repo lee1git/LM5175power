@@ -43,6 +43,9 @@ int PowerStateInit(int _en_sta,float _set_vol,float _set_cur)
 
     PowerState.I2C2_state = DEVICE_ONLINE;
     PowerState.SH1106_state = DEVICE_ONLINE;
+    //control mode
+    PowerState.control_mode = PM_CONTROL_MODE_VOLTAGE;      //voltage aka cv
+    // PowerState.control_mode = PM_CONTROL_MODE_CURRENT;      //current aka cc
     return 0;
 }
 

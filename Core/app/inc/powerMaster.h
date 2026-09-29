@@ -10,6 +10,8 @@
 #define DEVICE_ONLINE     (0x01)
 #define DEVICE_OFFLINE    (0x00)
 
+#define PM_CONTROL_MODE_VOLTAGE     (0x00)
+#define PM_CONTROL_MODE_CURRENT     (0x01)
 
 struct PowerStatus_t
 {
@@ -33,6 +35,8 @@ struct PowerStatus_t
 
     int en_statu;
     int pgood_statu;
+    //control mode relative
+    int control_mode;
 };
 
 extern struct PowerStatus_t PowerState;

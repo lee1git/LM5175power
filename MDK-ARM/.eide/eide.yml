@@ -40,6 +40,7 @@ virtualFolder:
             - path: ../Core/app/powerMaster.c
             - path: ../Core/app/uart_debug.c
             - path: ../Core/app/uart_dev.c
+            - path: ../Core/app/screen.c
           folders: []
     - name: Drivers
       files: []
@@ -328,4 +329,14 @@ targets:
         bin: ""
         interface: cmsis-dap
         target: stm32f1x
+      STLink:
+        address: "0x08000000"
+        bin: ""
+        elFile: None
+        optionBytes: .eide/power_control.st.option.bytes.ini
+        otherCmds: ""
+        proType: SWD
+        resetMode: default
+        runAfterProgram: true
+        speed: 4000
     uploader: OpenOCD

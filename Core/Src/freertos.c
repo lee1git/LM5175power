@@ -36,6 +36,7 @@
 #include "uart_debug.h"
 #include "iwdg.h"
 #include "pid.h"
+#include "screen.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -55,7 +56,6 @@
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN Variables */
   /* u8g2 handle */
-  u8g2_t u8g2;
   //INA226 init data
   struct sensor_INA226_init INA226_init_data = {INA226_calibration_10A_6mOhm};
 /* USER CODE END Variables */
@@ -594,13 +594,12 @@ void screen_show(void *argument)
 #ifdef DEV_UART_DEBUG
   int run_count = 0;
 #endif
-  char buffer[20] = {0};
   struct PowerStatus_t PowerState_copy_last;
   struct PowerStatus_t PowerState_copy;
   TickType_t lastWakeTime = xTaskGetTickCount();  //period base
   int first_flag = 0;
   /* Infinite loop */
-  u8g2Init(&u8g2);
+  screen_init();
   for(;;)
   {  
   #ifdef DEV_UART_DEBUG
@@ -617,39 +616,23 @@ void screen_show(void *argument)
     }
 
     if(first_flag == 0){
-      u8g2_ClearBuffer(&u8g2);
-      u8g2_SetFont(&u8g2, u8g2_font_6x10_tr);
-	    sprintf(buffer,"Vset :%05.2fV",PowerState_copy.set_voltage);
-      u8g2_DrawStr(&u8g2, 0, 10, buffer); 
-	    sprintf(buffer,"Iset :%05.2fA",PowerState_copy.set_current);
-      u8g2_DrawStr(&u8g2, 0, 18, buffer);
-	    sprintf(buffer,"Vout :%05.2fV",PowerState_copy.now_voltage);
-      u8g2_DrawStr(&u8g2, 0, 30, buffer);
-	    sprintf(buffer,"Iout :%05.2fA",PowerState_copy.now_current);
-      u8g2_DrawStr(&u8g2, 0, 38, buffer);
-	    sprintf(buffer,"T:%03.1fC",PowerState_copy.now_temperature);
-      u8g2_DrawStr(&u8g2, 0, 50, buffer);
-      
-	    u8g2_SendBuffer(&u8g2);
+      screen_clear_buffer();
+      screen_set_small_font();
+      screen_set_data_print(&PowerState_copy);
+      screen_real_data_print(PowerState_copy.now_voltage, PowerState_copy.now_current, PowerState_copy.now_temperature);
+
+      screen_send_buffer();
       PowerState_copy_last = PowerState_copy;
 	    first_flag = 1;
       continue;
     }
 
-    u8g2_ClearBuffer(&u8g2);
-    u8g2_SetFont(&u8g2, u8g2_font_6x10_tr);
-    sprintf(buffer,"Vset :%05.2fV",PowerState_copy.set_voltage);
-    u8g2_DrawStr(&u8g2, 0, 10, buffer); 
-    sprintf(buffer,"Iset :%05.2fA",PowerState_copy.set_current);
-    u8g2_DrawStr(&u8g2, 0, 18, buffer);
-    sprintf(buffer,"Vout :%05.2fV",PowerState_copy.now_voltage);
-    u8g2_DrawStr(&u8g2, 0, 30, buffer);
-    sprintf(buffer,"Iout :%05.2fA",PowerState_copy.now_current);
-    u8g2_DrawStr(&u8g2, 0, 38, buffer);
-    sprintf(buffer,"T:%03.1fC",PowerState_copy.now_temperature);
-    u8g2_DrawStr(&u8g2, 0, 50, buffer);
+    screen_clear_buffer();
+    screen_set_small_font();
+    screen_set_data_print(&PowerState_copy);
+    screen_real_data_print(PowerState_copy.now_voltage, PowerState_copy.now_current, PowerState_copy.now_temperature);
 
-    u8g2_SendBuffer(&u8g2);
+    screen_send_buffer();
     PowerState_copy_last = PowerState_copy;
   }
   /* USER CODE END screen_show */
