@@ -41,6 +41,7 @@ virtualFolder:
             - path: ../Core/app/uart_debug.c
             - path: ../Core/app/uart_dev.c
             - path: ../Core/app/screen.c
+            - path: ../Core/app/buttom_detect.c
           folders: []
     - name: Drivers
       files: []

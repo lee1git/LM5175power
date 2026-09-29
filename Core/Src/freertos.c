@@ -37,6 +37,7 @@
 #include "iwdg.h"
 #include "pid.h"
 #include "screen.h"
+#include "buttom_detect.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -92,14 +93,14 @@ osThreadId_t sensor_err_handHandle;
 const osThreadAttr_t sensor_err_hand_attributes = {
   .name = "sensor_err_hand",
   .stack_size = 192 * 4,
-  .priority = (osPriority_t) osPriorityNormal,
+  .priority = (osPriority_t) osPriorityNormal1,
 };
 /* Definitions for screen */
 osThreadId_t screenHandle;
 const osThreadAttr_t screen_attributes = {
   .name = "screen",
   .stack_size = 192 * 4,
-  .priority = (osPriority_t) osPriorityNormal,
+  .priority = (osPriority_t) osPriorityNormal1,
 };
 /* Definitions for iwdog_feed */
 osThreadId_t iwdog_feedHandle;
@@ -107,6 +108,13 @@ const osThreadAttr_t iwdog_feed_attributes = {
   .name = "iwdog_feed",
   .stack_size = 64 * 4,
   .priority = (osPriority_t) osPriorityRealtime7,
+};
+/* Definitions for buttomDetectTas */
+osThreadId_t buttomDetectTasHandle;
+const osThreadAttr_t buttomDetectTas_attributes = {
+  .name = "buttomDetectTas",
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityRealtime1,
 };
 /* Definitions for PowerStateAcssess */
 osMutexId_t PowerStateAcssessHandle;
@@ -136,6 +144,7 @@ void sensorRead(void *argument);
 void sensor_err_handle(void *argument);
 void screen_show(void *argument);
 void IWDOG_feed(void *argument);
+void buttom_detect(void *argument);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
@@ -196,6 +205,9 @@ void MX_FREERTOS_Init(void) {
   /* creation of iwdog_feed */
   iwdog_feedHandle = osThreadNew(IWDOG_feed, NULL, &iwdog_feed_attributes);
 
+  /* creation of buttomDetectTas */
+  buttomDetectTasHandle = osThreadNew(buttom_detect, NULL, &buttomDetectTas_attributes);
+
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
   /* USER CODE END RTOS_THREADS */
@@ -234,20 +246,20 @@ void StartDefaultTask(void *argument)
 void buttomTask(void *argument)
 {
   /* USER CODE BEGIN buttomTask */
+  uint32_t flags;
   int temp = 0;
   osStatus_t result;
+  uint32_t notice_flags = 
+    BUTTOM_KEY_ON_OFF_PRESS_F | BUTTOM_KEY_UP_PRESS_F | BUTTOM_KEY_DOWN_PRESS_F;
   /* Infinite loop */
   for(;;)
   {
-    osDelay(pdMS_TO_TICKS(120));
-    osThreadFlagsWait((uint32_t)0x00000001U,osFlagsWaitAny,osWaitForever);//wait EXIT
-    osDelay(pdMS_TO_TICKS(20));   //
-
-    temp = HAL_GPIO_ReadPin(GPIOA,GPIO_PIN_8);  //power en switch
-    if(temp == GPIO_PIN_RESET){
-      temp = HAL_GPIO_ReadPin(GPIOA,GPIO_PIN_9);   //read levels outside the lock
-
-      if(osMutexAcquire(PowerStateAcssessHandle,pdMS_TO_TICKS(5)) == osOK)
+    // osDelay(pdMS_TO_TICKS(120));
+    flags = osThreadFlagsWait(notice_flags,osFlagsWaitAny,osWaitForever);//wait EXIT
+    // osDelay(pdMS_TO_TICKS(20));   //
+    if((flags & notice_flags & BUTTOM_KEY_ON_OFF_PRESS_F) != 0)
+    {
+      if(PowerState_lock() == 0)
       {
         if(PowerState.en_statu == PWR_EN_ON){   //off
           HAL_GPIO_WritePin(GPIOA,GPIO_PIN_9,GPIO_PIN_RESET);
@@ -259,39 +271,15 @@ void buttomTask(void *argument)
           HAL_GPIO_WritePin(GPIOC,GPIO_PIN_13,GPIO_PIN_RESET);
           PowerState.en_statu = PWR_EN_ON;
         }
-        result = osMutexRelease(PowerStateAcssessHandle);   //only release what we hold
-        (void)result;                                       //kept for the DEBUG build
-        #if DEBUG
-        if(result != osOK){
-          HAL_UART_Transmit(&huart2,"MUTEX:PowerStateAcssess realse ERR\r\n",29,HAL_MAX_DELAY);
-        }
-        #endif
+        PowerState_unlock();
       }
       else{
         //lock not acquired: leave PowerState untouched this round
       }
-      continue;
     }
 
-    temp = HAL_GPIO_ReadPin(GPIOB,GPIO_PIN_13);   //vlotage limit&current limit switch
-    if (temp == GPIO_PIN_RESET){
-
-    }
-
-    temp = HAL_GPIO_ReadPin(GPIOB,GPIO_PIN_14);   //dowm,vlotage first
-    if (temp == GPIO_PIN_RESET){
-      if(PowerState_lock() == 0)
-      {
-        if(PowerState.set_voltage + POWER_VOLTAGE_DOWN_STEP < POWER_MIN_VOLTAGE)
-          PowerState.set_voltage = POWER_MIN_VOLTAGE;
-        else
-          PowerState.set_voltage += POWER_VOLTAGE_DOWN_STEP;
-        PowerState_unlock();
-      }
-    }
-
-    temp = HAL_GPIO_ReadPin(GPIOB,GPIO_PIN_15);    //up
-    if (temp == GPIO_PIN_RESET){
+    if((flags & notice_flags & BUTTOM_KEY_UP_PRESS_F) != 0)
+    {
       if(PowerState_lock() == 0)
       {
         if(PowerState.set_voltage + POWER_VOLTAGE_UP_STEP > POWER_MAX_VOLTAGE)
@@ -302,6 +290,16 @@ void buttomTask(void *argument)
       }
     }
 
+    if((flags & notice_flags & BUTTOM_KEY_DOWN_PRESS_F) != 0){
+      if(PowerState_lock() == 0)
+      {
+        if(PowerState.set_voltage + POWER_VOLTAGE_DOWN_STEP < POWER_MIN_VOLTAGE)
+          PowerState.set_voltage = POWER_MIN_VOLTAGE;
+        else
+          PowerState.set_voltage += POWER_VOLTAGE_DOWN_STEP;
+        PowerState_unlock();
+      }
+    }
   }
   /* USER CODE END buttomTask */
 }
@@ -661,6 +659,140 @@ void IWDOG_feed(void *argument)
   /* USER CODE END IWDOG_feed */
 }
 
+/* USER CODE BEGIN Header_buttom_detect */
+/**
+* @brief Function implementing the buttomDetectTas thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_buttom_detect */
+void buttom_detect(void *argument)
+{
+  /* USER CODE BEGIN buttom_detect */
+  uint32_t flags;
+  struct key_action_get
+  {
+    char on_use     ;
+    char count_time ;
+    char high_times ;
+  }key_on_off_action_get = {0,0,0},
+   key_up_action_get = {0,0,0},
+   key_down_action_get = {0,0,0};
+  buttom_msg_t key_on_off;
+  buttom_msg_t key_up;
+  buttom_msg_t key_down;  
+
+  buttom_init(&key_on_off);
+  buttom_init(&key_up);
+  buttom_init(&key_down);
+  TickType_t lastWakeTime = xTaskGetTickCount();  //period base
+  for(;;)
+  {
+    vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(BUTTOM_DETECT_CYCLE_MS));
+    flags = osThreadFlagsGet();
+    if(flags != 0U)
+    {
+      if(((flags & BUTTOM_KEY_ON_OFF_F) != 0) && key_on_off_action_get.on_use == 0){
+        osThreadFlagsClear(BUTTOM_KEY_ON_OFF_F);
+        key_on_off_action_get.on_use = 1; 
+      }
+      if(((flags & BUTTOM_KEY_UP_F) != 0) && key_up_action_get.on_use == 0){
+        osThreadFlagsClear(BUTTOM_KEY_UP_F);
+        key_up_action_get.on_use = 1; 
+      }
+      if(((flags & BUTTOM_KEY_DOWN_F) != 0) && key_down_action_get.on_use == 0){
+        osThreadFlagsClear(BUTTOM_KEY_DOWN_F);
+        key_down_action_get.on_use = 1; 
+      }
+    }
+
+    if(key_on_off_action_get.on_use == 1){
+      if(HAL_GPIO_ReadPin(GPIOA,GPIO_PIN_8) == GPIO_PIN_RESET){
+        key_on_off_action_get.count_time++;
+      }else{
+        key_on_off_action_get.count_time++;
+        key_on_off_action_get.high_times++;
+      }
+    }
+
+    if(key_up_action_get.on_use == 1){
+      if(HAL_GPIO_ReadPin(GPIOB,GPIO_PIN_15) == GPIO_PIN_RESET){
+        key_up_action_get.count_time++;
+      }else{
+        key_up_action_get.count_time++;
+        key_up_action_get.high_times++;
+      }
+    }
+
+    if(key_down_action_get.on_use == 1){
+      if(HAL_GPIO_ReadPin(GPIOB,GPIO_PIN_14) == GPIO_PIN_RESET){
+        key_down_action_get.count_time++;
+      }else{
+        key_down_action_get.count_time++;
+        key_down_action_get.high_times++;
+      }
+    }
+
+    if(key_on_off_action_get.count_time >= BUTTOM_OVER_DETECT_TIMES){
+      if(key_on_off_action_get.high_times > BUTTOM_OVER_DETECT_TIMES/2){
+        if(buttom_state(&key_on_off,BUTTOM_ACTION_UP) == BUTTOM_PRESS){
+          osThreadFlagsSet(buttomHandle,BUTTOM_KEY_ON_OFF_PRESS_F);
+        }
+      }else{
+        if(buttom_state(&key_on_off,BUTTOM_ACTION_DOWN) == BUTTOM_PRESS){
+          osThreadFlagsSet(buttomHandle,BUTTOM_KEY_ON_OFF_PRESS_F);
+        }
+      }
+      key_on_off_action_get.count_time = 0;
+      key_on_off_action_get.high_times = 0;
+      key_on_off_action_get.on_use = 0; 
+    }else{
+      if(buttom_state(&key_on_off,BUTTOM_ACTION_NONE) == BUTTOM_PRESS){
+        osThreadFlagsSet(buttomHandle,BUTTOM_KEY_ON_OFF_PRESS_F);
+      }
+    }
+
+    if(key_up_action_get.count_time >= BUTTOM_OVER_DETECT_TIMES){
+      if(key_up_action_get.high_times > BUTTOM_OVER_DETECT_TIMES/2){
+        if(buttom_state(&key_up,BUTTOM_ACTION_UP) == BUTTOM_PRESS){
+          osThreadFlagsSet(buttomHandle,BUTTOM_KEY_UP_PRESS_F);
+        }
+      }else{
+        if(buttom_state(&key_up,BUTTOM_ACTION_DOWN) == BUTTOM_PRESS){
+          osThreadFlagsSet(buttomHandle,BUTTOM_KEY_UP_PRESS_F);
+        }
+      }
+      key_up_action_get.count_time = 0;
+      key_up_action_get.high_times = 0;
+      key_up_action_get.on_use = 0; 
+    }else{
+      if(buttom_state(&key_up,BUTTOM_ACTION_NONE) == BUTTOM_PRESS){
+        osThreadFlagsSet(buttomHandle,BUTTOM_KEY_UP_PRESS_F);
+      }
+    }
+
+    if(key_down_action_get.count_time >= BUTTOM_OVER_DETECT_TIMES){
+      if(key_down_action_get.high_times > BUTTOM_OVER_DETECT_TIMES/2){
+        if(buttom_state(&key_down,BUTTOM_ACTION_UP) == BUTTOM_PRESS){
+          osThreadFlagsSet(buttomHandle,BUTTOM_KEY_DOWN_PRESS_F);
+        }
+      }else{
+        if(buttom_state(&key_down,BUTTOM_ACTION_DOWN) == BUTTOM_PRESS){
+          osThreadFlagsSet(buttomHandle,BUTTOM_KEY_DOWN_PRESS_F);
+        }
+      }
+      key_down_action_get.count_time = 0;
+      key_down_action_get.high_times = 0;
+      key_down_action_get.on_use = 0; 
+    }else{
+      if(buttom_state(&key_down,BUTTOM_ACTION_NONE) == BUTTOM_PRESS){
+        osThreadFlagsSet(buttomHandle,BUTTOM_KEY_DOWN_PRESS_F);
+      }
+    }
+  }
+  /* USER CODE END buttom_detect */
+}
+
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
@@ -668,17 +800,28 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
   if(GPIO_Pin == GPIO_PIN_8)
   {
     HAL_NVIC_ClearPendingIRQ(EXTI9_5_IRQn);
-    osThreadFlagsSet(buttomHandle,(uint32_t)0x00000001U);
+    // osThreadFlagsSet(buttomHandle,(uint32_t)0x00000001U);
+    osThreadFlagsSet(buttomDetectTasHandle,BUTTOM_KEY_ON_OFF_F);
   }
 
-  if(
-    (GPIO_Pin == GPIO_PIN_13)||
-    (GPIO_Pin == GPIO_PIN_14)||
-    (GPIO_Pin == GPIO_PIN_15)
-  )
+  // if(
+  //   (GPIO_Pin == GPIO_PIN_13)
+  // )
+  // {
+  //   HAL_NVIC_ClearPendingIRQ(EXTI15_10_IRQn);
+  //   osThreadFlagsSet(buttomHandle,(uint32_t)0x00000001U);
+  // }
+
+  if(GPIO_Pin == GPIO_PIN_14)
   {
     HAL_NVIC_ClearPendingIRQ(EXTI15_10_IRQn);
-    osThreadFlagsSet(buttomHandle,(uint32_t)0x00000001U);
+    osThreadFlagsSet(buttomDetectTasHandle,BUTTOM_KEY_DOWN_F);
+  }
+
+  if(GPIO_Pin == GPIO_PIN_15)
+  {
+    HAL_NVIC_ClearPendingIRQ(EXTI15_10_IRQn);
+    osThreadFlagsSet(buttomDetectTasHandle,BUTTOM_KEY_UP_F);
   }
 }
 /* I2C 总线互斥：覆盖 sensors_dev.c 里的弱函数实现
