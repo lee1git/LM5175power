@@ -31,7 +31,9 @@ int PowerStateInit(int _en_sta,float _set_vol,float _set_cur)
     PowerState.now_temperature = 0.0f;
 
     PowerState.set_voltage = _set_vol;
+    PowerState.limit_voltage = POWER_MAX_VOLTAGE;
     PowerState.set_current = _set_cur;
+    PowerState.limit_current = POWER_SETUP_CURRENT_LIMIT;
 
     PowerState.last_update_time_voltage = 0;
     PowerState.last_update_time_current = 0;

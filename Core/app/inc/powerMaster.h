@@ -3,6 +3,7 @@
 
 #include "main.h"
 #include "cmsis_os.h"
+#include "power_config.h"
 
 #define PWR_EN_ON       0x00
 #define PWR_EN_OFF      0x01
@@ -16,7 +17,9 @@
 struct PowerStatus_t
 {
     float set_voltage;
+    float limit_voltage;
     float set_current;
+    float limit_current;
     float now_voltage;
     float now_current;
 

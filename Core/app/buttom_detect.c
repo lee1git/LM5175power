@@ -31,7 +31,6 @@ buttom_detect_t buttom_state(buttom_msg_t* buttom, int action)
         }
         break;
     case buttom_sm_key_dowm_1:
-             UART_Printf("down1\r\n");
         if(action == BUTTOM_ACTION_DOWN){
             buttom->mid_state = buttom_sm_start;
             buttom->state_start_tick = 0;

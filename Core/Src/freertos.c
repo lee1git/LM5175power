@@ -254,12 +254,11 @@ void buttomTask(void *argument)
   /* Infinite loop */
   for(;;)
   {
-    // osDelay(pdMS_TO_TICKS(120));
-    flags = osThreadFlagsWait(notice_flags,osFlagsWaitAny,osWaitForever);//wait EXIT
-    // osDelay(pdMS_TO_TICKS(20));   //
-    if((flags & notice_flags & BUTTOM_KEY_ON_OFF_PRESS_F) != 0)
+    flags = osThreadFlagsWait(notice_flags,osFlagsWaitAny,osWaitForever);
+
+    if(PowerState_lock() == 0)
     {
-      if(PowerState_lock() == 0)
+      if((flags & notice_flags & BUTTOM_KEY_ON_OFF_PRESS_F) != 0)
       {
         if(PowerState.en_statu == PWR_EN_ON){   //off
           HAL_GPIO_WritePin(GPIOA,GPIO_PIN_9,GPIO_PIN_RESET);
@@ -271,34 +270,36 @@ void buttomTask(void *argument)
           HAL_GPIO_WritePin(GPIOC,GPIO_PIN_13,GPIO_PIN_RESET);
           PowerState.en_statu = PWR_EN_ON;
         }
-        PowerState_unlock();
       }
-      else{
-        //lock not acquired: leave PowerState untouched this round
-      }
-    }
 
-    if((flags & notice_flags & BUTTOM_KEY_UP_PRESS_F) != 0)
-    {
-      if(PowerState_lock() == 0)
+      if(PowerState.control_mode == PM_CONTROL_MODE_VOLTAGE)  //cv
       {
-        if(PowerState.set_voltage + POWER_VOLTAGE_UP_STEP > POWER_MAX_VOLTAGE)
-          PowerState.set_voltage = POWER_MAX_VOLTAGE;
-        else
-          PowerState.set_voltage += POWER_VOLTAGE_UP_STEP;
-        PowerState_unlock();
+        if((flags & notice_flags & BUTTOM_KEY_UP_PRESS_F) != 0)
+        {
+          if(PowerState.set_voltage + POWER_VOLTAGE_UP_STEP > POWER_MAX_VOLTAGE)
+            PowerState.set_voltage = POWER_MAX_VOLTAGE;
+          else
+            PowerState.set_voltage += POWER_VOLTAGE_UP_STEP;
+        }
+        if((flags & notice_flags & BUTTOM_KEY_DOWN_PRESS_F) != 0){
+          if(PowerState.set_voltage + POWER_VOLTAGE_DOWN_STEP < POWER_MIN_VOLTAGE)
+            PowerState.set_voltage = POWER_MIN_VOLTAGE;
+          else
+            PowerState.set_voltage += POWER_VOLTAGE_DOWN_STEP;
+        }
       }
-    }
+      else if(PowerState.control_mode == PM_CONTROL_MODE_CURRENT) //cc
+      {
+        if((flags & notice_flags & BUTTOM_KEY_UP_PRESS_F) != 0){
 
-    if((flags & notice_flags & BUTTOM_KEY_DOWN_PRESS_F) != 0){
-      if(PowerState_lock() == 0)
-      {
-        if(PowerState.set_voltage + POWER_VOLTAGE_DOWN_STEP < POWER_MIN_VOLTAGE)
-          PowerState.set_voltage = POWER_MIN_VOLTAGE;
-        else
-          PowerState.set_voltage += POWER_VOLTAGE_DOWN_STEP;
-        PowerState_unlock();
+        }
+        if((flags & notice_flags & BUTTOM_KEY_DOWN_PRESS_F) != 0){
+          
+        }
       }
+      PowerState_unlock();
+    }else{
+      //skip
     }
   }
   /* USER CODE END buttomTask */
