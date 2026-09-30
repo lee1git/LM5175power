@@ -6,10 +6,16 @@
 #include "uart_debug.h"
 
 
-void buttom_init(buttom_msg_t* buttom)
+void buttom_init(buttom_msg_t* buttom, GPIO_TypeDef* gpio, uint16_t gpio_pin, uint32_t buttom_flag)
 {
-    buttom->mid_state = buttom_sm_start;
-    buttom->state_start_tick = 0;
+    buttom->gpio                = gpio;
+    buttom->gpio_pin            = gpio_pin;
+    buttom->mid_state           = buttom_sm_start;
+    buttom->buttom_flag         = buttom_flag;
+    buttom->state_start_tick    = 0;
+    buttom->on_use              = 0;
+    buttom->count_time          = 0;
+    buttom->high_times          = 0;
 }
 
 buttom_detect_t buttom_state(buttom_msg_t* buttom, int action)

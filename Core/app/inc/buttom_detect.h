@@ -43,12 +43,19 @@ typedef enum {
 }buttom_detect_t;
 
 typedef struct {
-    GPIO_TypeDef* gpio;
+    GPIO_TypeDef* gpio  ;
+    uint16_t gpio_pin   ;
+
     buttom_state_machine_t mid_state;
-    uint32_t state_start_tick;
+    uint32_t buttom_flag        ;
+    uint32_t state_start_tick   ;
+    
+    char on_use     ;
+    char count_time ;
+    char high_times ;
 }buttom_msg_t;
 
-void buttom_init(buttom_msg_t* buttom);
+void buttom_init(buttom_msg_t* buttom, GPIO_TypeDef* gpio, uint16_t gpio_pin, uint32_t buttom_flag);
 buttom_detect_t buttom_state(buttom_msg_t* buttom, int action);
 
 #endif

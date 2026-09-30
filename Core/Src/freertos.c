@@ -294,7 +294,7 @@ void buttomTask(void *argument)
 
         }
         if((flags & notice_flags & BUTTOM_KEY_DOWN_PRESS_F) != 0){
-          
+
         }
       }
       PowerState_unlock();
@@ -666,26 +666,22 @@ void IWDOG_feed(void *argument)
 * @param argument: Not used
 * @retval None
 */
+#define key_detect_num  3   //numbers of key on spy
 /* USER CODE END Header_buttom_detect */
 void buttom_detect(void *argument)
 {
   /* USER CODE BEGIN buttom_detect */
   uint32_t flags;
-  struct key_action_get
-  {
-    char on_use     ;
-    char count_time ;
-    char high_times ;
-  }key_on_off_action_get = {0,0,0},
-   key_up_action_get = {0,0,0},
-   key_down_action_get = {0,0,0};
-  buttom_msg_t key_on_off;
-  buttom_msg_t key_up;
-  buttom_msg_t key_down;  
+  buttom_msg_t bmt_key_onoff;
+  buttom_msg_t bmt_key_up;
+  buttom_msg_t bmt_key_down;
 
-  buttom_init(&key_on_off);
-  buttom_init(&key_up);
-  buttom_init(&key_down);
+  buttom_init(&bmt_key_onoff, GPIOA, GPIO_PIN_8, BUTTOM_KEY_ON_OFF_F);
+  buttom_init(&bmt_key_up, GPIOB, GPIO_PIN_15, BUTTOM_KEY_UP_F);
+  buttom_init(&bmt_key_down, GPIOB, GPIO_PIN_14, BUTTOM_KEY_DOWN_F);
+
+  buttom_msg_t *bmt_arr[key_detect_num] = {&bmt_key_onoff, &bmt_key_up, &bmt_key_down};
+
   TickType_t lastWakeTime = xTaskGetTickCount();  //period base
   for(;;)
   {
@@ -693,101 +689,43 @@ void buttom_detect(void *argument)
     flags = osThreadFlagsGet();
     if(flags != 0U)
     {
-      if(((flags & BUTTOM_KEY_ON_OFF_F) != 0) && key_on_off_action_get.on_use == 0){
-        osThreadFlagsClear(BUTTOM_KEY_ON_OFF_F);
-        key_on_off_action_get.on_use = 1; 
-      }
-      if(((flags & BUTTOM_KEY_UP_F) != 0) && key_up_action_get.on_use == 0){
-        osThreadFlagsClear(BUTTOM_KEY_UP_F);
-        key_up_action_get.on_use = 1; 
-      }
-      if(((flags & BUTTOM_KEY_DOWN_F) != 0) && key_down_action_get.on_use == 0){
-        osThreadFlagsClear(BUTTOM_KEY_DOWN_F);
-        key_down_action_get.on_use = 1; 
+      for(int i=0;i<key_detect_num;i++) //start to detect whitch edge
+      {
+        if(((flags & bmt_arr[i]->buttom_flag) != 0) && bmt_arr[i]->on_use == 0){
+          osThreadFlagsClear(bmt_arr[i]->buttom_flag);
+          bmt_arr[i]->on_use = 1;
+        }
       }
     }
 
-    if(key_on_off_action_get.on_use == 1){
-      if(HAL_GPIO_ReadPin(GPIOA,GPIO_PIN_8) == GPIO_PIN_RESET){
-        key_on_off_action_get.count_time++;
-      }else{
-        key_on_off_action_get.count_time++;
-        key_on_off_action_get.high_times++;
+    for(int i=0;i<key_detect_num;i++)
+    {
+      if(bmt_arr[i]->on_use == 1){// count how many counts and high levels
+        if(HAL_GPIO_ReadPin(bmt_arr[i]->gpio,bmt_arr[i]->gpio_pin) == GPIO_PIN_RESET){
+          bmt_arr[i]->count_time++;
+        }else{
+          bmt_arr[i]->count_time++;
+          bmt_arr[i]->high_times++;
+        }
       }
-    }
 
-    if(key_up_action_get.on_use == 1){
-      if(HAL_GPIO_ReadPin(GPIOB,GPIO_PIN_15) == GPIO_PIN_RESET){
-        key_up_action_get.count_time++;
+      if(bmt_arr[i]->count_time >= BUTTOM_OVER_DETECT_TIMES){
+        if(bmt_arr[i]->high_times > BUTTOM_OVER_DETECT_TIMES/2){
+          if(buttom_state(bmt_arr[i],BUTTOM_ACTION_UP) == BUTTOM_PRESS){
+            osThreadFlagsSet(buttomHandle,bmt_arr[i]->buttom_flag);
+          }
+        }else{
+          if(buttom_state(bmt_arr[i],BUTTOM_ACTION_DOWN) == BUTTOM_PRESS){
+            osThreadFlagsSet(buttomHandle,bmt_arr[i]->buttom_flag);
+          }
+        }
+        bmt_arr[i]->count_time = 0;
+        bmt_arr[i]->high_times = 0;
+        bmt_arr[i]->on_use = 0; 
       }else{
-        key_up_action_get.count_time++;
-        key_up_action_get.high_times++;
-      }
-    }
-
-    if(key_down_action_get.on_use == 1){
-      if(HAL_GPIO_ReadPin(GPIOB,GPIO_PIN_14) == GPIO_PIN_RESET){
-        key_down_action_get.count_time++;
-      }else{
-        key_down_action_get.count_time++;
-        key_down_action_get.high_times++;
-      }
-    }
-
-    if(key_on_off_action_get.count_time >= BUTTOM_OVER_DETECT_TIMES){
-      if(key_on_off_action_get.high_times > BUTTOM_OVER_DETECT_TIMES/2){
-        if(buttom_state(&key_on_off,BUTTOM_ACTION_UP) == BUTTOM_PRESS){
-          osThreadFlagsSet(buttomHandle,BUTTOM_KEY_ON_OFF_PRESS_F);
+        if(buttom_state(bmt_arr[i],BUTTOM_ACTION_NONE) == BUTTOM_PRESS){
+          osThreadFlagsSet(buttomHandle,bmt_arr[i]->buttom_flag);
         }
-      }else{
-        if(buttom_state(&key_on_off,BUTTOM_ACTION_DOWN) == BUTTOM_PRESS){
-          osThreadFlagsSet(buttomHandle,BUTTOM_KEY_ON_OFF_PRESS_F);
-        }
-      }
-      key_on_off_action_get.count_time = 0;
-      key_on_off_action_get.high_times = 0;
-      key_on_off_action_get.on_use = 0; 
-    }else{
-      if(buttom_state(&key_on_off,BUTTOM_ACTION_NONE) == BUTTOM_PRESS){
-        osThreadFlagsSet(buttomHandle,BUTTOM_KEY_ON_OFF_PRESS_F);
-      }
-    }
-
-    if(key_up_action_get.count_time >= BUTTOM_OVER_DETECT_TIMES){
-      if(key_up_action_get.high_times > BUTTOM_OVER_DETECT_TIMES/2){
-        if(buttom_state(&key_up,BUTTOM_ACTION_UP) == BUTTOM_PRESS){
-          osThreadFlagsSet(buttomHandle,BUTTOM_KEY_UP_PRESS_F);
-        }
-      }else{
-        if(buttom_state(&key_up,BUTTOM_ACTION_DOWN) == BUTTOM_PRESS){
-          osThreadFlagsSet(buttomHandle,BUTTOM_KEY_UP_PRESS_F);
-        }
-      }
-      key_up_action_get.count_time = 0;
-      key_up_action_get.high_times = 0;
-      key_up_action_get.on_use = 0; 
-    }else{
-      if(buttom_state(&key_up,BUTTOM_ACTION_NONE) == BUTTOM_PRESS){
-        osThreadFlagsSet(buttomHandle,BUTTOM_KEY_UP_PRESS_F);
-      }
-    }
-
-    if(key_down_action_get.count_time >= BUTTOM_OVER_DETECT_TIMES){
-      if(key_down_action_get.high_times > BUTTOM_OVER_DETECT_TIMES/2){
-        if(buttom_state(&key_down,BUTTOM_ACTION_UP) == BUTTOM_PRESS){
-          osThreadFlagsSet(buttomHandle,BUTTOM_KEY_DOWN_PRESS_F);
-        }
-      }else{
-        if(buttom_state(&key_down,BUTTOM_ACTION_DOWN) == BUTTOM_PRESS){
-          osThreadFlagsSet(buttomHandle,BUTTOM_KEY_DOWN_PRESS_F);
-        }
-      }
-      key_down_action_get.count_time = 0;
-      key_down_action_get.high_times = 0;
-      key_down_action_get.on_use = 0; 
-    }else{
-      if(buttom_state(&key_down,BUTTOM_ACTION_NONE) == BUTTOM_PRESS){
-        osThreadFlagsSet(buttomHandle,BUTTOM_KEY_DOWN_PRESS_F);
       }
     }
   }
