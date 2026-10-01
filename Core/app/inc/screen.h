@@ -14,6 +14,6 @@ void screen_send_buffer();
 
 //
 void screen_set_data_print(struct PowerStatus_t* PowerState);
-void screen_real_data_print(float voltage, float current, float temperature);
+void screen_real_data_print(struct PowerStatus_t* PowerState);
 
 #endif

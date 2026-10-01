@@ -1,6 +1,11 @@
 #ifndef _PID_ALGORITHM_H_
 #define _PID_ALGORITHM_H_
 
+#define PI_CV_KP                    (-10.0f)
+#define PI_CV_KI                    (-0.024f)
+#define PI_CV_INTEGRAL_LIMIT        (500.0f)
+#define PI_CV_INTEGRAL_DEADZONE     (0.03f)
+
 typedef struct
 {
     //pid 

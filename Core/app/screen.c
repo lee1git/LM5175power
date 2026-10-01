@@ -52,10 +52,10 @@ void screen_set_data_print(struct PowerStatus_t* PowerState)
     }
 }
 
-void screen_real_data_print(float voltage, float current, float temperature)
+void screen_real_data_print(struct PowerStatus_t* PowerState)
 {
-    screen_printf(0, 30, "Vout :%05.2fV", voltage);
-    screen_printf(0, 38, "Iout :%05.2fA", current);
-    screen_printf(0, 50, "T :%03.1fC", temperature);
+    screen_printf(0, 30, "Vout :%05.2fV", PowerState->now_voltage);
+    screen_printf(0, 38, "Iout :%05.2fA", PowerState->now_current);
+    screen_printf(0, 50, "T :%03.1fC", PowerState->now_temperature);
 }
 

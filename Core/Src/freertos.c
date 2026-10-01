@@ -116,6 +116,11 @@ const osThreadAttr_t buttomDetectTas_attributes = {
   .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityRealtime1,
 };
+/* Definitions for myQueue01 */
+osMessageQueueId_t myQueue01Handle;
+const osMessageQueueAttr_t myQueue01_attributes = {
+  .name = "myQueue01"
+};
 /* Definitions for PowerStateAcssess */
 osMutexId_t PowerStateAcssessHandle;
 const osMutexAttr_t PowerStateAcssess_attributes = {
@@ -178,6 +183,10 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN RTOS_TIMERS */
   /* start timers, add new ones, ... */
   /* USER CODE END RTOS_TIMERS */
+
+  /* Create the queue(s) */
+  /* creation of myQueue01 */
+  myQueue01Handle = osMessageQueueNew (8, sizeof(buttom_msg_pass_t), &myQueue01_attributes);
 
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
@@ -246,60 +255,62 @@ void StartDefaultTask(void *argument)
 void buttomTask(void *argument)
 {
   /* USER CODE BEGIN buttomTask */
-  uint32_t flags;
-  int temp = 0;
-  osStatus_t result;
-  uint32_t notice_flags = 
-    BUTTOM_KEY_ON_OFF_PRESS_F | BUTTOM_KEY_UP_PRESS_F | BUTTOM_KEY_DOWN_PRESS_F;
+  buttom_msg_pass_t process_msg;
   /* Infinite loop */
   for(;;)
   {
-    flags = osThreadFlagsWait(notice_flags,osFlagsWaitAny,osWaitForever);
+    osMessageQueueGet(myQueue01Handle,&process_msg,0,osWaitForever);
 
     if(PowerState_lock() == 0)
     {
-      if((flags & notice_flags & BUTTOM_KEY_ON_OFF_PRESS_F) != 0)
+      switch (process_msg.key_f)
       {
-        if(PowerState.en_statu == PWR_EN_ON){   //off
-          HAL_GPIO_WritePin(GPIOA,GPIO_PIN_9,GPIO_PIN_RESET);
-          HAL_GPIO_WritePin(GPIOC,GPIO_PIN_13,GPIO_PIN_SET);
-          PowerState.en_statu = PWR_EN_OFF;
+      case BUTTOM_KEY_ON_OFF_F:
+        if(process_msg.buttom_type == BUTTOM_PRESS){
+          if(PowerState.en_statu == PWR_EN_ON){   //off
+            HAL_GPIO_WritePin(GPIOA,GPIO_PIN_9,GPIO_PIN_RESET);
+            HAL_GPIO_WritePin(GPIOC,GPIO_PIN_13,GPIO_PIN_SET);
+            PowerState.en_statu = PWR_EN_OFF;
+          }
+          else{
+            HAL_GPIO_WritePin(GPIOA,GPIO_PIN_9,GPIO_PIN_SET);
+            HAL_GPIO_WritePin(GPIOC,GPIO_PIN_13,GPIO_PIN_RESET);
+            PowerState.en_statu = PWR_EN_ON;
+          }
         }
-        else{
-          HAL_GPIO_WritePin(GPIOA,GPIO_PIN_9,GPIO_PIN_SET);
-          HAL_GPIO_WritePin(GPIOC,GPIO_PIN_13,GPIO_PIN_RESET);
-          PowerState.en_statu = PWR_EN_ON;
-        }
-      }
-
-      if(PowerState.control_mode == PM_CONTROL_MODE_VOLTAGE)  //cv
-      {
-        if((flags & notice_flags & BUTTOM_KEY_UP_PRESS_F) != 0)
+        break;
+      case BUTTOM_KEY_UP_F:
+        if(PowerState.control_mode == PM_CONTROL_MODE_VOLTAGE)  //cv
         {
-          if(PowerState.set_voltage + POWER_VOLTAGE_UP_STEP > POWER_MAX_VOLTAGE)
-            PowerState.set_voltage = POWER_MAX_VOLTAGE;
-          else
-            PowerState.set_voltage += POWER_VOLTAGE_UP_STEP;
+          if(process_msg.buttom_type == BUTTOM_PRESS){
+            if(PowerState.set_voltage + POWER_VOLTAGE_UP_STEP > POWER_MAX_VOLTAGE)
+              PowerState.set_voltage = POWER_MAX_VOLTAGE;
+            else
+              PowerState.set_voltage += POWER_VOLTAGE_UP_STEP;
+          }
         }
-        if((flags & notice_flags & BUTTOM_KEY_DOWN_PRESS_F) != 0){
-          if(PowerState.set_voltage + POWER_VOLTAGE_DOWN_STEP < POWER_MIN_VOLTAGE)
-            PowerState.set_voltage = POWER_MIN_VOLTAGE;
-          else
-            PowerState.set_voltage += POWER_VOLTAGE_DOWN_STEP;
+        break;
+      case BUTTOM_KEY_DOWN_F:
+        if(PowerState.control_mode == PM_CONTROL_MODE_VOLTAGE)  //cv
+        {
+          if(process_msg.buttom_type == BUTTOM_PRESS){
+            if(PowerState.set_voltage + POWER_VOLTAGE_DOWN_STEP < POWER_MIN_VOLTAGE)
+              PowerState.set_voltage = POWER_MIN_VOLTAGE;
+            else
+              PowerState.set_voltage += POWER_VOLTAGE_DOWN_STEP;
+          }
         }
-      }
-      else if(PowerState.control_mode == PM_CONTROL_MODE_CURRENT) //cc
-      {
-        if((flags & notice_flags & BUTTOM_KEY_UP_PRESS_F) != 0){
-
+        break;
+      case BUTTOM_KEY_MODESWITCH_F:
+        if(process_msg.buttom_type == BUTTOM_PRESS){
+          PowerState.control_mode = ((PowerState.control_mode == PM_CONTROL_MODE_CURRENT) ? PM_CONTROL_MODE_VOLTAGE : PM_CONTROL_MODE_CURRENT);
         }
-        if((flags & notice_flags & BUTTOM_KEY_DOWN_PRESS_F) != 0){
-
-        }
+        break;
+      
+      default:
+        break;
       }
       PowerState_unlock();
-    }else{
-      //skip
     }
   }
   /* USER CODE END buttomTask */
@@ -319,10 +330,11 @@ void Vlotage_pid(void *argument)
     int run_count = 0;
   #endif
   PI_data_typedef pi_data;
-  PI_init(&pi_data, -10.0f, -0.024f, 500.0f, 0.05f);
+  PI_init(&pi_data, PI_CV_KP, PI_CV_KI, PI_CV_INTEGRAL_LIMIT, PI_CV_INTEGRAL_DEADZONE);
 
   float set_voltage = POWER_SETUP_VOLTAGE_SET;
   float new_voltage;  //V
+  struct PowerStatus_t powerstate_copy;
   int32_t now_pulse = VOLTAGE_TO_PWM_PULSE(POWER_SETUP_VOLTAGE_SET);       //initial PWM pulse width, just a magic number
   int32_t pwm_pulse;
   TickType_t lastWakeTime = xTaskGetTickCount();   //period base, taken once outside the loop
@@ -333,33 +345,39 @@ void Vlotage_pid(void *argument)
     check_over = 1;     //assume all checks pass, cleared on any fault
     
     if(PowerState_lock() == 0){
-      new_voltage = PowerState.now_voltage;
-      set_voltage = PowerState.set_voltage;
-
-      if(PowerState.en_statu == PWR_EN_OFF ||
-         PowerState.INA226_state == DEVICE_OFFLINE ||
-         new_voltage < 0.0f
-      ){
-        PI_clear_integral(&pi_data);
-        check_over = 0;
-      }
+      powerstate_copy = PowerState;
       PowerState_unlock();
     }else{
       //lock not acquired: leave PowerState untouched this round
       check_over = 0;
     }
+    if(
+      powerstate_copy.en_statu == PWR_EN_OFF ||
+      powerstate_copy.INA226_state == DEVICE_OFFLINE ||
+      new_voltage < 0.0f ||
+      check_over != 1
+    )
+    {
+      PI_clear_integral(&pi_data);
+    }
+    else
+    {
+      // if(check_over == 1){          //all checks passed: this round may drive the PWM
+      if(powerstate_copy.control_mode == PM_CONTROL_MODE_VOLTAGE)
+        pwm_pulse = (int32_t)f_PI_calcu_keep(&pi_data,powerstate_copy.set_voltage,powerstate_copy.now_voltage);
+      else if(powerstate_copy.control_mode == PM_CONTROL_MODE_CURRENT)
+        pwm_pulse = (int32_t)f_PI_calcu_keep(&pi_data,powerstate_copy.set_current,powerstate_copy.now_current);
 
-    if(check_over == 1){          //all checks passed: this round may drive the PWM
-      pwm_pulse = (int32_t)f_PI_calcu_keep(&pi_data,set_voltage,new_voltage);
-      if(now_pulse+pwm_pulse > PWM_VOLTAGE_PULSE_MAX)now_pulse = PWM_VOLTAGE_PULSE_MAX;
-      else if(now_pulse+pwm_pulse < PWM_VOLTAGE_PULSE_MIN)now_pulse = PWM_VOLTAGE_PULSE_MIN;
-      else now_pulse += pwm_pulse; 
-
-      __HAL_TIM_SET_COMPARE(&htim3,TIM_CHANNEL_1,now_pulse);
+        if(now_pulse+pwm_pulse > PWM_VOLTAGE_PULSE_MAX)now_pulse = PWM_VOLTAGE_PULSE_MAX;
+        else if(now_pulse+pwm_pulse < PWM_VOLTAGE_PULSE_MIN)now_pulse = PWM_VOLTAGE_PULSE_MIN;
+        else now_pulse += pwm_pulse; 
+  
+        __HAL_TIM_SET_COMPARE(&htim3,TIM_CHANNEL_1,now_pulse);
+      // }
     }
 
   #ifdef DEV_UART_DEBUG
-    UART_Printf("voltage_pid:%d\r\n",run_count);
+    UART_Printf("voltage_pid:%d\r\n",run_count++);
     UART_Printf("voltage_pid_stack:%d\r\n",uxTaskGetStackHighWaterMark(PIDvHandle));
   #endif
 
@@ -614,22 +632,10 @@ void screen_show(void *argument)
       continue;
     }
 
-    if(first_flag == 0){
-      screen_clear_buffer();
-      screen_set_small_font();
-      screen_set_data_print(&PowerState_copy);
-      screen_real_data_print(PowerState_copy.now_voltage, PowerState_copy.now_current, PowerState_copy.now_temperature);
-
-      screen_send_buffer();
-      PowerState_copy_last = PowerState_copy;
-	    first_flag = 1;
-      continue;
-    }
-
     screen_clear_buffer();
     screen_set_small_font();
     screen_set_data_print(&PowerState_copy);
-    screen_real_data_print(PowerState_copy.now_voltage, PowerState_copy.now_current, PowerState_copy.now_temperature);
+    screen_real_data_print(&PowerState_copy);
 
     screen_send_buffer();
     PowerState_copy_last = PowerState_copy;
@@ -666,21 +672,24 @@ void IWDOG_feed(void *argument)
 * @param argument: Not used
 * @retval None
 */
-#define key_detect_num  3   //numbers of key on spy
+#define key_detect_num  4   //numbers of key on spy
 /* USER CODE END Header_buttom_detect */
 void buttom_detect(void *argument)
 {
   /* USER CODE BEGIN buttom_detect */
+  buttom_msg_pass_t msg_pass;
   uint32_t flags;
   buttom_msg_t bmt_key_onoff;
   buttom_msg_t bmt_key_up;
   buttom_msg_t bmt_key_down;
+  buttom_msg_t bmt_key_mode_switch;
 
   buttom_init(&bmt_key_onoff, GPIOA, GPIO_PIN_8, BUTTOM_KEY_ON_OFF_F);
   buttom_init(&bmt_key_up, GPIOB, GPIO_PIN_15, BUTTOM_KEY_UP_F);
   buttom_init(&bmt_key_down, GPIOB, GPIO_PIN_14, BUTTOM_KEY_DOWN_F);
+  buttom_init(&bmt_key_mode_switch, GPIOB, GPIO_PIN_13, BUTTOM_KEY_MODESWITCH_F);
 
-  buttom_msg_t *bmt_arr[key_detect_num] = {&bmt_key_onoff, &bmt_key_up, &bmt_key_down};
+  buttom_msg_t *bmt_arr[key_detect_num] = {&bmt_key_onoff, &bmt_key_up, &bmt_key_down, &bmt_key_mode_switch};
 
   TickType_t lastWakeTime = xTaskGetTickCount();  //period base
   for(;;)
@@ -710,22 +719,23 @@ void buttom_detect(void *argument)
       }
 
       if(bmt_arr[i]->count_time >= BUTTOM_OVER_DETECT_TIMES){
-        if(bmt_arr[i]->high_times > BUTTOM_OVER_DETECT_TIMES/2){
-          if(buttom_state(bmt_arr[i],BUTTOM_ACTION_UP) == BUTTOM_PRESS){
-            osThreadFlagsSet(buttomHandle,bmt_arr[i]->buttom_flag);
-          }
+        if(bmt_arr[i]->high_times > BUTTOM_OVER_DETECT_TIMES/2){    //high > count/2 is high
+          buttom_state(bmt_arr[i],BUTTOM_ACTION_UP);
         }else{
-          if(buttom_state(bmt_arr[i],BUTTOM_ACTION_DOWN) == BUTTOM_PRESS){
-            osThreadFlagsSet(buttomHandle,bmt_arr[i]->buttom_flag);
-          }
+          buttom_state(bmt_arr[i],BUTTOM_ACTION_DOWN);
         }
-        bmt_arr[i]->count_time = 0;
+        bmt_arr[i]->count_time = 0;   //clear for next detect
         bmt_arr[i]->high_times = 0;
         bmt_arr[i]->on_use = 0; 
       }else{
-        if(buttom_state(bmt_arr[i],BUTTOM_ACTION_NONE) == BUTTOM_PRESS){
-          osThreadFlagsSet(buttomHandle,bmt_arr[i]->buttom_flag);
-        }
+        msg_pass.buttom_type = buttom_state(bmt_arr[i],BUTTOM_ACTION_NONE);
+        msg_pass.key_f = bmt_arr[i]->buttom_flag;
+        if(
+          msg_pass.buttom_type == BUTTOM_PRESS ||
+          msg_pass.buttom_type == BUTTOM_LPRESS ||
+          msg_pass.buttom_type == BUTTOM_DPRESS 
+        )
+        osMessageQueuePut(myQueue01Handle,&msg_pass,0,pdMS_TO_TICKS(1));
       }
     }
   }
@@ -739,17 +749,14 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
   if(GPIO_Pin == GPIO_PIN_8)
   {
     HAL_NVIC_ClearPendingIRQ(EXTI9_5_IRQn);
-    // osThreadFlagsSet(buttomHandle,(uint32_t)0x00000001U);
     osThreadFlagsSet(buttomDetectTasHandle,BUTTOM_KEY_ON_OFF_F);
   }
 
-  // if(
-  //   (GPIO_Pin == GPIO_PIN_13)
-  // )
-  // {
-  //   HAL_NVIC_ClearPendingIRQ(EXTI15_10_IRQn);
-  //   osThreadFlagsSet(buttomHandle,(uint32_t)0x00000001U);
-  // }
+  if((GPIO_Pin == GPIO_PIN_13))
+  {
+    HAL_NVIC_ClearPendingIRQ(EXTI15_10_IRQn);
+    osThreadFlagsSet(buttomDetectTasHandle,BUTTOM_KEY_MODESWITCH_F);
+  }
 
   if(GPIO_Pin == GPIO_PIN_14)
   {

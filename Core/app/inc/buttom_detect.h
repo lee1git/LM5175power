@@ -16,6 +16,14 @@
 #define BUTTOM_KEY_ON_OFF_F         ((uint32_t)0x0001)
 #define BUTTOM_KEY_UP_F             ((uint32_t)0x0002)
 #define BUTTOM_KEY_DOWN_F           ((uint32_t)0x0004)
+#define BUTTOM_KEY_MODESWITCH_F     ((uint32_t)0x0008)
+
+// offset
+#define BUTTOM_F_OFFSET_LENTH       ((uint32_t)0x4)
+#define BUTTOM_F_OFFSET_P           ((uint32_t)0x0)
+#define BUTTOM_F_OFFSET_LP          ((uint32_t)0x1)
+#define BUTTOM_F_OFFSET_DP          ((uint32_t)0x2)
+
 // flag for porcess
 #define BUTTOM_KEY_ON_OFF_PRESS_F   ((uint32_t)0x0001)   
 #define BUTTOM_KEY_UP_PRESS_F       ((uint32_t)0x0002)
@@ -54,6 +62,12 @@ typedef struct {
     char count_time ;
     char high_times ;
 }buttom_msg_t;
+
+typedef struct{
+    uint32_t    key_f;
+    buttom_detect_t buttom_type;
+}buttom_msg_pass_t;
+
 
 void buttom_init(buttom_msg_t* buttom, GPIO_TypeDef* gpio, uint16_t gpio_pin, uint32_t buttom_flag);
 buttom_detect_t buttom_state(buttom_msg_t* buttom, int action);
