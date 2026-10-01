@@ -3,8 +3,15 @@
 
 #include "powerMaster.h"
 
+#define ON                          (1)
+#define OFF                         (0)
+//pre 
+#define CYCLE_DETECT_I2C1           (OFF)
+#define CYCLE_DETECT_SCREEN         (ON)
+#define CYCLE_DETECT_PID            (OFF)
 
 //limit
+#define TEMPERATUE_LIMIT            (90.0f)     //90C is highest temperatue
 #define POWER_MAX_VOLTAGE           (15.0f)
 #define POWER_MIN_VOLTAGE           (1.0f)
 #define PWM_VLOTAGE_TOP             (324U)     //when pluse is 324,zhe Vout is 15V

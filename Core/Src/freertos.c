@@ -329,6 +329,15 @@ void Vlotage_pid(void *argument)
   #ifdef DEV_UART_DEBUG
     int run_count = 0;
   #endif
+
+  //time trace
+#ifdef CYCLE_DETECT_PID
+#if CYCLE_DETECT_PID == ON
+  float pid_min = 999999,pid_max = 0, pid_sum = 0;
+  uint32_t pid_count = 0;
+#endif
+#endif
+
   PI_data_typedef pi_data;
   PI_init(&pi_data, PI_CV_KP, PI_CV_KI, PI_CV_INTEGRAL_LIMIT, PI_CV_INTEGRAL_DEADZONE);
 
@@ -345,23 +354,33 @@ void Vlotage_pid(void *argument)
     check_over = 1;     //assume all checks pass, cleared on any fault
     
     if(PowerState_lock() == 0){
+      if(PowerState.now_temperature > TEMPERATUE_LIMIT)
+        PowerState.en_statu = PWR_EN_OFF;   //temperature is higher than the limit,disable the power
       powerstate_copy = PowerState;
       PowerState_unlock();
     }else{
       //lock not acquired: leave PowerState untouched this round
       check_over = 0;
     }
+
     if(
       powerstate_copy.en_statu == PWR_EN_OFF ||
       powerstate_copy.INA226_state == DEVICE_OFFLINE ||
       new_voltage < 0.0f ||
       check_over != 1
-    )
+    )// wrong
     {
       PI_clear_integral(&pi_data);
     }
     else
     {
+      //time trace
+#ifdef CYCLE_DETECT_PID
+#if CYCLE_DETECT_PID == ON
+      uint32_t start = DWT->CYCCNT;
+#endif
+#endif
+
       // if(check_over == 1){          //all checks passed: this round may drive the PWM
       if(powerstate_copy.control_mode == PM_CONTROL_MODE_VOLTAGE)
         pwm_pulse = (int32_t)f_PI_calcu_keep(&pi_data,powerstate_copy.set_voltage,powerstate_copy.now_voltage);
@@ -374,6 +393,22 @@ void Vlotage_pid(void *argument)
   
         __HAL_TIM_SET_COMPARE(&htim3,TIM_CHANNEL_1,now_pulse);
       // }
+      //time trace
+#ifdef CYCLE_DETECT_PID
+#if CYCLE_DETECT_PID == ON
+      uint32_t end = DWT->CYCCNT;
+      uint32_t cycles = end-start;
+      float us = (float)cycles / (SystemCoreClock / 1000000.0f);
+
+      if(us < pid_min)pid_min = us;
+      if(us > pid_max)pid_max = us;
+      pid_sum += us;
+      pid_count++;
+      UART_Printf("PID:%.1f us\r\n",us);
+      if(pid_count % 100 == 0)
+      UART_Printf("PID min:%.1f, avg:%.1f, max:%.1f us\r\n",pid_min,pid_sum/pid_count,pid_max);
+#endif
+#endif
     }
 
   #ifdef DEV_UART_DEBUG
@@ -399,6 +434,14 @@ void sensorRead(void *argument)
 #ifdef DEV_UART_DEBUG
   int run_count = 0;
 #endif
+  //time trace
+#ifdef CYCLE_DETECT_I2C1
+#if CYCLE_DETECT_I2C1 == ON
+  float i2c_min = 999999,i2c_max = 0, i2c_sum = 0;
+  uint32_t i2c_count = 0;
+#endif
+#endif
+
   float temperature;
   float voltage;
   float current;
@@ -441,6 +484,13 @@ void sensorRead(void *argument)
       TMP112A_state = PowerState.TMP112_state;
       PowerState_unlock();
     }
+
+    //time trace
+#ifdef CYCLE_DETECT_I2C1
+#if CYCLE_DETECT_I2C1 == ON
+    uint32_t start = DWT->CYCCNT;
+#endif
+#endif
     
     if(I2C_state == DEVICE_ONLINE)  //work only when the bus is online
     {
@@ -468,6 +518,23 @@ void sensorRead(void *argument)
         state_res_voltage = SENSOR_SKIP;
       }
     }
+
+    //time trace
+#ifdef CYCLE_DETECT_I2C1
+#if CYCLE_DETECT_I2C1 == ON
+    uint32_t end = DWT->CYCCNT;
+    uint32_t cycles = end-start;
+    float us = (float)cycles / (SystemCoreClock / 1000000.0f);
+
+    if(us < i2c_min)i2c_min = us;
+    if(us > i2c_max)i2c_max = us;
+    i2c_sum += us;
+    i2c_count++;
+    UART_Printf("I2C:%.1f us\r\n",us);
+    if(i2c_count % 100 == 0)
+      UART_Printf("I2C min:%.1f, avg:%.1f, max:%.1f us\r\n",i2c_min,i2c_sum/i2c_count,i2c_max);
+#endif
+#endif
 
     // write to PowerState struct, reset error counters if they exceed threshold
     if(PowerState_lock() == 0){
@@ -611,6 +678,15 @@ void screen_show(void *argument)
 #ifdef DEV_UART_DEBUG
   int run_count = 0;
 #endif
+
+//time trace
+#ifdef CYCLE_DETECT_SCREEN
+#if CYCLE_DETECT_SCREEN == ON
+  float screen_min = 999999,screen_max = 0, screen_sum = 0;
+  uint32_t screen_count = 0;
+#endif
+#endif
+
   struct PowerStatus_t PowerState_copy_last;
   struct PowerStatus_t PowerState_copy;
   TickType_t lastWakeTime = xTaskGetTickCount();  //period base
@@ -632,6 +708,13 @@ void screen_show(void *argument)
       continue;
     }
 
+    //time trace
+#ifdef CYCLE_DETECT_SCREEN
+#if CYCLE_DETECT_SCREEN == ON
+    uint32_t start = DWT->CYCCNT;
+#endif
+#endif
+
     screen_clear_buffer();
     screen_set_small_font();
     screen_set_data_print(&PowerState_copy);
@@ -639,6 +722,23 @@ void screen_show(void *argument)
 
     screen_send_buffer();
     PowerState_copy_last = PowerState_copy;
+
+    //time trace
+#ifdef CYCLE_DETECT_SCREEN
+#if CYCLE_DETECT_SCREEN == ON
+    uint32_t end = DWT->CYCCNT;
+    uint32_t cycles = end-start;
+    float us = (float)cycles / (SystemCoreClock / 1000000.0f);
+
+    if(us < screen_min)screen_min = us;
+    if(us > screen_max)screen_max = us;
+    screen_sum += us;
+    screen_count++;
+    UART_Printf("screen:%.1f us\r\n",us);
+    if(screen_count % 100 == 0)
+      UART_Printf("Screen min:%.1f, avg:%.1f, max:%.1f us\r\n",screen_min,screen_sum/screen_count,screen_max);
+#endif
+#endif
   }
   /* USER CODE END screen_show */
 }

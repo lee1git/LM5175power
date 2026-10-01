@@ -45,9 +45,9 @@ void screen_set_data_print(struct PowerStatus_t* PowerState)
 {
     if(PowerState->control_mode == PM_CONTROL_MODE_VOLTAGE){
       screen_printf(0, 10, "Vset :%05.2fV", PowerState->set_voltage); u8g2_DrawStr(&u8g2, 80, 10, "<");
-      screen_printf(0, 18, "Ilmt :%05.2fA", PowerState->set_current);
+      screen_printf(0, 18, "Ilmt :%05.2fA", PowerState->limit_current);
     }else if(PowerState->control_mode == PM_CONTROL_MODE_CURRENT){
-      screen_printf(0, 10, "Vlmt :%05.2fV", PowerState->set_voltage); 
+      screen_printf(0, 10, "Vlmt :%05.2fV", PowerState->limit_voltage); 
       screen_printf(0, 18, "Iset :%05.2fA", PowerState->set_current); u8g2_DrawStr(&u8g2, 80, 18, "<");
     }
 }
@@ -55,6 +55,11 @@ void screen_set_data_print(struct PowerStatus_t* PowerState)
 void screen_real_data_print(struct PowerStatus_t* PowerState)
 {
     screen_printf(0, 30, "Vout :%05.2fV", PowerState->now_voltage);
+    if(PowerState->I2C1_state == DEVICE_ONLINE){
+        screen_printf(80, 30, "online");
+    }else{
+        screen_printf(80, 30, "offline");
+    }
     screen_printf(0, 38, "Iout :%05.2fA", PowerState->now_current);
     screen_printf(0, 50, "T :%03.1fC", PowerState->now_temperature);
 }
