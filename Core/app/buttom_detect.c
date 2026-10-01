@@ -77,6 +77,7 @@ buttom_detect_t buttom_state(buttom_msg_t* buttom, int action)
         break;
 
     default://empty
+        return BUTTOM_ERR;
         break;
     }
 }
